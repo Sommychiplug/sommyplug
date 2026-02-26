@@ -21,24 +21,11 @@ const KORAPAY_SECRET_KEY = process.env.KORAPAY_SECRET_KEY;
 const KORAPAY_PUBLIC_KEY = process.env.KORAPAY_PUBLIC_KEY;
 const KORAPAY_WEBHOOK_SECRET = process.env.KORAPAY_WEBHOOK_SECRET;
 
-// ==================== ORDER API CONFIG ====================
-let orderApiSettings = {
-    enabled: true,
-    endpoint: process.env.ORDER_API_ENDPOINT || 'https://api.example.com/v1/orders',
-    apiKey: process.env.ORDER_API_KEY || 'sk_live_abc123',
-    timeout: 30
-};
+// ==================== EXOSUPPLIER CONFIG ====================
+const EXOSUPPLIER_API_KEY = process.env.EXOSUPPLIER_API_KEY;
+const EXOSUPPLIER_API_URL = process.env.EXOSUPPLIER_API_URL; // e.g., https://exosupplier.com/api/v2
 
-// Load settings from Firebase on startup
-async function loadApiSettings() {
-    const snapshot = await db.ref('apiSettings').once('value');
-    if (snapshot.exists()) {
-        orderApiSettings = { ...orderApiSettings, ...snapshot.val() };
-    }
-}
-loadApiSettings();
-
-// ==================== ENDPOINTS ====================
+// ==================== KORAPAY ENDPOINTS ====================
 
 // 1. Generate Korapay virtual account
 app.post('/api/korapay/generate', async (req, res) => {
@@ -47,14 +34,36 @@ app.post('/api/korapay/generate', async (req, res) => {
         return res.status(400).json({ error: 'Invalid amount or user' });
     }
 
+    // Get user email from Firebase (you need to implement this)
+    const userSnapshot = await db.ref(`users/${userId}`).once('value');
+    const user = userSnapshot.val();
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    try {
+       // 1. Generate Korapay virtual account
+app.post('/api/korapay/generate', async (req, res) => {
+    const { userId, amount } = req.body;
+    if (!userId || !amount || amount < 100) {
+        return res.status(400).json({ error: 'Invalid amount or user' });
+    }
+
+    // Get user from Firebase to get email/name
+    const userSnapshot = await db.ref(`users/${userId}`).once('value');
+    const user = userSnapshot.val();
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Generate a unique reference
+    const uniqueReference = `DEP_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
+
     try {
         const response = await axios.post('https://api.korapay.com/v1/merchant/api/v1/virtual-accounts', {
             amount,
             currency: 'NGN',
-            reference: 'DB' + Date.now() + Math.random().toString(36).substring(7),
+            reference: uniqueReference,          // now defined!
+            redirect_url: 'https://fastplug.netlify.app/',
             customer: {
-                name: 'User Name',
-                email: 'user@email.com'
+                name: user.username || 'User',
+                email: user.email || 'user@example.com'
             }
         }, {
             headers: { Authorization: `Bearer ${KORAPAY_SECRET_KEY}` }
@@ -95,7 +104,6 @@ app.post('/api/korapay/generate', async (req, res) => {
         res.status(500).json({ error: 'Payment initiation failed' });
     }
 });
-
 // 2. Korapay webhook (called when payment is received)
 app.post('/api/korapay-webhook', async (req, res) => {
     const event = req.body;
@@ -121,76 +129,112 @@ app.post('/api/korapay-webhook', async (req, res) => {
     res.sendStatus(200);
 });
 
-// 3. Place order
+// ==================== ORDER ENDPOINT WITH EXOSUPPLIER ====================
+
 app.post('/api/orders', async (req, res) => {
     const { userId, serviceId, quantity, details } = req.body;
     if (!userId || !serviceId || !quantity || !details) {
         return res.status(400).json({ error: 'Missing fields' });
     }
 
+    // 1. Get user from Firebase
     const userSnapshot = await db.ref(`users/${userId}`).once('value');
     const user = userSnapshot.val();
     if (!user) return res.status(404).json({ error: 'User not found' });
 
+    // 2. Get service from Firebase
     const serviceSnapshot = await db.ref('services').orderByChild('id').equalTo(serviceId).once('value');
     if (!serviceSnapshot.exists()) return res.status(404).json({ error: 'Service not found' });
     const service = Object.values(serviceSnapshot.val())[0];
 
+    // 3. Calculate cost
     const serviceCost = quantity * service.pricePerUnit;
     const total = serviceCost + 100; // platform fee
 
+    // 4. Check balance
     if (user.balance < total) {
         return res.status(400).json({ error: 'Insufficient balance' });
     }
 
+    // 5. Deduct balance FIRST (atomic operation)
     await userSnapshot.ref.transaction(u => {
         if (u) u.balance -= total;
         return u;
     });
 
-    const orderRef = db.ref('orders').push();
-    const order = {
-        id: orderRef.key,
-        userId,
-        username: user.username,
-        serviceId,
-        serviceName: service.name,
-        quantity,
-        pricePerUnit: service.pricePerUnit,
-        serviceCost,
-        platformFee: 100,
-        total,
-        details,
-        status: 'pending',
-        date: new Date().toISOString(),
-        apiProcessed: false
-    };
-    await orderRef.set(order);
-
-    if (orderApiSettings.enabled) {
-        try {
-            const apiResponse = await axios.post(orderApiSettings.endpoint, {
-                orderId: order.id,
-                service: service.name,
-                quantity,
-                details,
-                username: user.username
-            }, {
-                headers: { Authorization: `Bearer ${orderApiSettings.apiKey}` },
-                timeout: orderApiSettings.timeout * 1000
-            });
-            order.status = 'processing';
-            order.apiProcessed = true;
-            order.apiResponse = apiResponse.data;
-        } catch (error) {
-            console.error('Order API error:', error.message);
-            order.apiResponse = { error: error.message };
-        }
-        await orderRef.update({ status: order.status, apiProcessed: order.apiProcessed, apiResponse: order.apiResponse });
+    // 6. Prepare Exosupplier order
+    // IMPORTANT: Your service must have a field 'exosupplierServiceId' stored in Firebase.
+    // If not, you need to add it manually.
+    const exosupplierServiceId = service.exosupplierServiceId;
+    if (!exosupplierServiceId) {
+        // No mapping – refund user and exit
+        await userSnapshot.ref.transaction(u => {
+            if (u) u.balance += total;
+            return u;
+        });
+        return res.status(500).json({ error: 'Service not mapped to provider' });
     }
 
-    res.json({ success: true, orderId: order.id, total });
+    // Build form data for Exosupplier
+    const formBody = new URLSearchParams();
+    formBody.append('key', EXOSUPPLIER_API_KEY);
+    formBody.append('action', 'add');
+    formBody.append('service', exosupplierServiceId);
+    formBody.append('link', details);
+    formBody.append('quantity', quantity);
+
+    try {
+        const exoResponse = await axios.post(EXOSUPPLIER_API_URL, formBody.toString(), {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            timeout: 30000 // 30 seconds
+        });
+
+        const exoData = exoResponse.data;
+
+        // Check if Exosupplier returned an order ID
+        if (exoData.order) {
+            // Success – save order with external ID
+            const orderRef = db.ref('orders').push();
+            const order = {
+                id: orderRef.key,
+                userId,
+                username: user.username,
+                serviceId,
+                serviceName: service.name,
+                quantity,
+                pricePerUnit: service.pricePerUnit,
+                serviceCost,
+                platformFee: 100,
+                total,
+                details,
+                status: 'processing', // Exosupplier accepted it
+                externalOrderId: exoData.order, // Store Exosupplier's order ID
+                date: new Date().toISOString(),
+                apiProcessed: true
+            };
+            await orderRef.set(order);
+
+            return res.json({ success: true, orderId: order.id, total });
+        } else {
+            // Exosupplier returned an error – refund user
+            await userSnapshot.ref.transaction(u => {
+                if (u) u.balance += total;
+                return u;
+            });
+            console.error('Exosupplier error:', exoData);
+            return res.status(500).json({ error: 'Provider error – your funds have been refunded' });
+        }
+    } catch (error) {
+        // Network error or exception – refund user
+        await userSnapshot.ref.transaction(u => {
+            if (u) u.balance += total;
+            return u;
+        });
+        console.error('Error calling Exosupplier:', error.message);
+        return res.status(500).json({ error: 'System error – your funds have been refunded' });
+    }
 });
 
+// ==================== START SERVER ====================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
