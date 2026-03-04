@@ -114,7 +114,6 @@ app.post('/api/orders', async (req, res) => {
         
         return res.json({ success: true, id: orderId, apiProcessed: true });
       } catch (apiError) {
-        // 🔍 Log error to identify why it's failing (likely 404 in the external endpoint)
         console.error('API processing failed:', apiError.message, apiError.response?.data);
         return res.json({ success: true, id: orderId, apiProcessed: false });
       }
@@ -128,113 +127,73 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
-// ========== KORAPAY INTEGRATION – FIXED 404 & 400 ERRORS ==========
-app.post('/api/korapay/generate', async (req, res) => {
+// ========== KORAPAY STANDARD CHECKOUT (no virtual account) ==========
+app.post('/api/korapay/pay', async (req, res) => {
   try {
     const { userId, amount } = req.body;
-    console.log('Korapay generate request:', { userId, amount });
-    
-    if (!userId || !amount) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-    
+    if (!userId || !amount) return res.status(400).json({ error: 'Missing fields' });
+
     const user = await getUser(userId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
     // Get Korapay settings from Firebase
     const paymentMethodsSnapshot = await db.ref('paymentMethods/korapay').once('value');
     const korapaySettings = paymentMethodsSnapshot.val() || {};
-    
     if (!korapaySettings.enabled || !korapaySettings.secretKey) {
       return res.status(400).json({ error: 'Korapay not configured' });
     }
-    
+
     // Generate unique reference
-    const reference = `DB_${userId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    
-    // ✅ FIXED: Corrected API endpoint URL
-    const KORAPAY_ENDPOINT = 'https://api.korapay.com/merchant/api/v1/virtual-bank-account';
-    
-    // Call Korapay API to create virtual account
-    const response = await axios.post(KORAPAY_ENDPOINT, {
-      reference: reference,
-      account_name: user.username.replace(/[^a-zA-Z0-9]/g, ' ').substring(0, 50),
-      customer: {
-        name: user.username,
-        email: user.email
+    const reference = `DB_${userId}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+    // Initialize checkout (standard payment)
+    const response = await axios.post(
+      'https://api.korapay.com/merchant/api/v1/charges/initialize',
+      {
+        amount,
+        currency: 'NGN',
+        redirect_url: `${req.protocol}://${req.get('host')}/payment-success`, // optional – you can change this
+        reference,
+        customer: {
+          name: user.username,
+          email: user.email
+        },
+        metadata: { userId }
       },
-      // ✅ FIXED: Set permanent to true as required by Korapay
-      permanent: true, 
-      bank_code: "035", // ✅ Standard Wema Bank code
-      amount: amount,
-      currency: "NGN",
-      metadata: {
-        userId: userId,
-        source: 'DebbyBooster'
+      {
+        headers: {
+          Authorization: `Bearer ${korapaySettings.secretKey}`,
+          'Content-Type': 'application/json'
+        }
       }
-    }, {
-      headers: {
-        'Authorization': `Bearer ${korapaySettings.secretKey}`,
-        'Content-Type': 'application/json'
-      }
+    );
+
+    // Save deposit record (pending)
+    const depositRef = db.ref('deposits').push();
+    const depositId = depositRef.key;
+    const deposit = {
+      id: depositId,
+      userId,
+      username: user.username,
+      amount,
+      netAmount: amount,
+      fee: 0,
+      method: 'korapay',
+      reference,
+      status: 'pending',
+      date: new Date().toISOString(),
+      checkoutUrl: response.data.data.checkout_url
+    };
+    await depositRef.set(deposit);
+
+    res.json({
+      checkout_url: response.data.data.checkout_url,
+      reference
     });
-    
-    // 🔍 Log the full Korapay response for debugging
-    console.log('Korapay API response:', response.data);
-    
-    // ✅ FIXED: Updated success check for status (API returns boolean true or "true")
-    if ((response.data.status === true || response.data.status === 'success') && response.data.data) {
-      const accountData = response.data.data;
-      
-      const depositRef = db.ref('deposits').push();
-      const depositId = depositRef.key;
-      
-      const deposit = {
-        id: depositId,
-        userId,
-        username: user.username,
-        amount: amount,
-        netAmount: amount - (korapaySettings.fee || 0),
-        fee: korapaySettings.fee || 0,
-        method: 'korapay',
-        reference: reference,
-        status: 'pending',
-        date: new Date().toISOString(),
-        accountNumber: accountData.account_number,
-        bankName: accountData.bank_name,
-        accountName: accountData.account_name,
-        expiryTime: new Date(Date.now() + 30 * 60000).toISOString()
-      };
-      
-      await depositRef.set(deposit);
-      
-      // Return account details to frontend
-      res.json({
-        accountNumber: accountData.account_number,
-        bankName: accountData.bank_name,
-        accountName: accountData.account_name,
-        reference: reference,
-        depositId: depositId,
-        expiryTime: deposit.expiryTime
-      });
-    } else {
-      console.error('Korapay returned non-success status or missing data:', response.data);
-      throw new Error('Failed to create virtual account: ' + JSON.stringify(response.data));
-    }
-    
+
   } catch (error) {
-    console.error('🔥 Korapay generation error details:', {
-      message: error.message,
-      responseData: error.response?.data,
-      status: error.response?.status,
-      headers: error.response?.headers
-    });
-    res.status(500).json({ 
-      error: 'Failed to generate payment account',
-      details: error.response?.data || error.message 
-    });
+    console.error('Korapay initialization error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to initialize payment', details: error.response?.data || error.message });
   }
 });
 
@@ -265,8 +224,7 @@ app.post('/api/korapay/webhook', async (req, res) => {
       
       const user = await getUser(deposit.userId);
       if (user) {
-        const netAmount = deposit.netAmount || (deposit.amount - (deposit.fee || 0));
-        await updateUserBalance(deposit.userId, user.balance + netAmount);
+        await updateUserBalance(deposit.userId, user.balance + deposit.netAmount);
       }
       
       res.status(200).send('Webhook processed successfully');
