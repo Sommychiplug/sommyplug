@@ -59,8 +59,7 @@ app.post('/api/orders', async (req, res) => {
       return res.status(404).json({ error: 'User or service not found' });
     }
 
-    // 🔧 PLATFORM FEE SET TO 0 (removed ₦100 fee)
-    const PLATFORM_FEE = 0;
+    const PLATFORM_FEE = 0; // No platform fee
     const totalCost = (service.pricePerUnit * quantity) + PLATFORM_FEE;
     
     if (user.balance < totalCost) {
@@ -90,7 +89,7 @@ app.post('/api/orders', async (req, res) => {
     await orderRef.set(order);
     await updateUserBalance(userId, user.balance - totalCost);
     
-    // Auto-process if enabled
+    // Auto-process if enabled – disabled by default now to avoid 404 spam
     const apiSettingsSnapshot = await db.ref('apiSettings').once('value');
     const apiSettings = apiSettingsSnapshot.val() || {};
     
@@ -115,6 +114,7 @@ app.post('/api/orders', async (req, res) => {
         return res.json({ success: true, id: orderId, apiProcessed: true });
       } catch (apiError) {
         console.error('API processing failed:', apiError.message, apiError.response?.data);
+        // Order is still created locally
         return res.json({ success: true, id: orderId, apiProcessed: false });
       }
     }
@@ -127,7 +127,7 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
-// ========== KORAPAY STANDARD CHECKOUT (no virtual account) ==========
+// ========== KORAPAY STANDARD CHECKOUT – WITH SHORT REFERENCE ==========
 app.post('/api/korapay/pay', async (req, res) => {
   try {
     const { userId, amount } = req.body;
@@ -143,8 +143,11 @@ app.post('/api/korapay/pay', async (req, res) => {
       return res.status(400).json({ error: 'Korapay not configured' });
     }
 
-    // Generate unique reference
-    const reference = `DB_${userId}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    // Generate a short reference (max 50 chars)
+    const shortUserId = userId.slice(-8); // last 8 chars of userId
+    const timestamp = Date.now().toString().slice(-8); // last 8 digits of timestamp
+    const random = Math.random().toString(36).substring(2, 6); // 4 chars
+    const reference = `DB${shortUserId}${timestamp}${random}`; // total ~ 8+8+4 = 20 chars, safe
 
     // Initialize checkout (standard payment)
     const response = await axios.post(
@@ -152,7 +155,7 @@ app.post('/api/korapay/pay', async (req, res) => {
       {
         amount,
         currency: 'NGN',
-        redirect_url: `${req.protocol}://${req.get('host')}/payment-success`, // optional – you can change this
+        redirect_url: `${req.protocol}://${req.get('host')}/payment-success`, // optional
         reference,
         customer: {
           name: user.username,
@@ -193,7 +196,10 @@ app.post('/api/korapay/pay', async (req, res) => {
 
   } catch (error) {
     console.error('Korapay initialization error:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to initialize payment', details: error.response?.data || error.message });
+    res.status(500).json({ 
+      error: 'Failed to initialize payment', 
+      details: error.response?.data || error.message 
+    });
   }
 });
 
