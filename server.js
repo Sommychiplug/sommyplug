@@ -8,7 +8,7 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ========== CORS FIX – Allow all origins (for development) ==========
+// ========== CORS – Allow all origins (for development) ==========
 app.use(cors({ origin: true, credentials: true }));
 app.options('*', cors({ origin: true, credentials: true })); // preflight
 
@@ -59,7 +59,8 @@ app.post('/api/orders', async (req, res) => {
       return res.status(404).json({ error: 'User or service not found' });
     }
 
-    const PLATFORM_FEE = 100;
+    // 🔧 PLATFORM FEE SET TO 0 (removed ₦100 fee)
+    const PLATFORM_FEE = 0;
     const totalCost = (service.pricePerUnit * quantity) + PLATFORM_FEE;
     
     if (user.balance < totalCost) {
@@ -126,7 +127,7 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
-// ========== KORAPAY INTEGRATION – FIXED ==========
+// ========== KORAPAY INTEGRATION – IMPROVED LOGGING ==========
 app.post('/api/korapay/generate', async (req, res) => {
   try {
     const { userId, amount } = req.body;
@@ -174,6 +175,9 @@ app.post('/api/korapay/generate', async (req, res) => {
       }
     });
     
+    // 🔍 Log the full Korapay response for debugging
+    console.log('Korapay API response:', response.data);
+    
     if (response.data.status === 'success' && response.data.data) {
       const accountData = response.data.data;
       
@@ -185,8 +189,9 @@ app.post('/api/korapay/generate', async (req, res) => {
         userId,
         username: user.username,
         amount: amount,
-        netAmount: amount - (korapaySettings.fee || 1.68),
-        fee: korapaySettings.fee || 1.68,
+        // 🔧 Korapay fee now comes from settings (set to 0 in admin to remove)
+        netAmount: amount - (korapaySettings.fee || 0),
+        fee: korapaySettings.fee || 0,
         method: 'korapay',
         reference: reference,
         status: 'pending',
@@ -209,13 +214,25 @@ app.post('/api/korapay/generate', async (req, res) => {
         expiryTime: deposit.expiryTime
       });
     } else {
-      throw new Error('Failed to create virtual account');
+      // Log the unexpected response for debugging
+      console.error('Korapay returned non-success status or missing data:', response.data);
+      throw new Error('Failed to create virtual account: ' + JSON.stringify(response.data));
     }
     
   } catch (error) {
-    console.error('Korapay generation error details:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to generate payment account' });
-}
+    // 🔥 Enhanced error logging – now includes full error details
+    console.error('🔥 Korapay generation error details:', {
+      message: error.message,
+      responseData: error.response?.data,
+      status: error.response?.status,
+      headers: error.response?.headers,
+      config: error.config // optional, may contain sensitive info
+    });
+    res.status(500).json({ 
+      error: 'Failed to generate payment account',
+      details: error.response?.data || error.message 
+    });
+  }
 });
 
 // ========== KORAPAY WEBHOOK ==========
@@ -245,7 +262,7 @@ app.post('/api/korapay/webhook', async (req, res) => {
       
       const user = await getUser(deposit.userId);
       if (user) {
-        const netAmount = deposit.netAmount || (deposit.amount - (deposit.fee || 1.68));
+        const netAmount = deposit.netAmount || (deposit.amount - (deposit.fee || 0));
         await updateUserBalance(deposit.userId, user.balance + netAmount);
       }
       
