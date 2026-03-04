@@ -1,0 +1,2281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debby Booster - Social Media Growth Services</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        /* ========== FULL CSS – EXACTLY AS BEFORE ========== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #1f2937;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+        .homepage {
+            background: white;
+            border-radius: 30px;
+            padding: 50px;
+            box-shadow: 0 30px 70px rgba(0,0,0,0.15);
+            animation: fadeIn 0.8s ease;
+            display: none;
+        }
+        .homepage.active { display: block; }
+        .hero-section { text-align: center; padding: 30px 0; }
+        .logo { font-size: 52px; font-weight: 800; color: #4f46e5; margin-bottom: 20px; }
+        .tagline { font-size: 20px; color: #6b7280; max-width: 800px; margin: 0 auto 40px; }
+        .btn {
+            padding: 14px 36px; border-radius: 50px; font-size: 18px; font-weight: 600;
+            border: none; cursor: pointer; transition: 0.3s; display: inline-flex; align-items: center; gap: 10px;
+        }
+        .btn-primary { background: #4f46e5; color: white; box-shadow: 0 10px 20px -5px rgba(79,70,229,0.3); }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-warning { background: #f59e0b; color: white; }
+
+        .features-grid, .steps {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px; margin-top: 40px;
+        }
+        .feature-card, .step {
+            background: white; padding: 30px; border-radius: 20px; text-align: center;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.03); transition: 0.3s; border: 1px solid #f3f4f6;
+        }
+        .feature-card:hover { transform: translateY(-10px); box-shadow: 0 20px 30px rgba(79,70,229,0.1); }
+
+        .auth-page {
+            display: none;
+            max-width: 1100px;
+            margin: 40px auto;
+            background: white;
+            border-radius: 40px;
+            overflow: hidden;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.2);
+            animation: slideUp 0.5s ease;
+        }
+        .auth-page.active { display: flex; flex-wrap: wrap; }
+
+        .auth-brand {
+            flex: 1 1 45%;
+            background: linear-gradient(145deg, #4f46e5, #7c3aed);
+            padding: 60px 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            color: white;
+        }
+        .auth-brand h2 { font-size: 42px; font-weight: 700; margin-bottom: 20px; }
+        .auth-brand p { font-size: 18px; opacity: 0.9; margin-bottom: 30px; line-height: 1.6; }
+        .auth-brand i { font-size: 80px; margin-bottom: 30px; color: rgba(255,255,255,0.8); }
+        .brand-features { list-style: none; margin-top: 30px; }
+        .brand-features li { margin-bottom: 15px; display: flex; align-items: center; gap: 12px; font-size: 16px; }
+
+        .auth-forms {
+            flex: 1 1 55%;
+            padding: 60px 50px;
+            background: white;
+        }
+        .auth-form-container { width: 100%; max-width: 400px; margin: 0 auto; }
+        .auth-form { display: none; }
+        .auth-form.active { display: block; }
+        .auth-form h3 { font-size: 32px; font-weight: 700; margin-bottom: 30px; color: #1f2937; }
+
+        .input-group {
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .input-group i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-size: 18px;
+        }
+        .input-group input,
+        .input-group select {
+            width: 100%;
+            padding: 16px 16px 16px 48px;
+            border: 2px solid #e5e7eb;
+            border-radius: 16px;
+            font-size: 16px;
+            transition: 0.3s;
+            background: #f9fafb;
+        }
+        .input-group input:focus,
+        .input-group select:focus {
+            border-color: #4f46e5;
+            outline: none;
+            background: white;
+            box-shadow: 0 0 0 4px rgba(79,70,229,0.1);
+        }
+        .password-wrapper { position: relative; }
+        .password-wrapper input { padding-right: 50px; }
+        .password-wrapper i {
+            left: auto;
+            right: 16px;
+            cursor: pointer;
+            color: #6b7280;
+        }
+
+        .btn-auth {
+            width: 100%;
+            padding: 16px;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: 600;
+            border: none;
+            background: #4f46e5;
+            color: white;
+            margin-top: 20px;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: 0 8px 20px -5px rgba(79,70,229,0.4);
+        }
+        .btn-auth:hover { background: #4338ca; transform: translateY(-2px); }
+
+        .auth-footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #6b7280;
+        }
+        .auth-footer a {
+            color: #4f46e5;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .auth-footer a:hover { text-decoration: underline; }
+
+        .register-highlight {
+            background: linear-gradient(145deg, #faf5ff, #f3e8ff);
+            padding: 30px;
+            border-radius: 24px;
+            margin-top: 20px;
+        }
+
+        .dashboard {
+            background: white;
+            border-radius: 30px;
+            padding: 40px;
+            box-shadow: 0 30px 70px rgba(0,0,0,0.15);
+            display: none;
+        }
+        .dashboard.active { display: block; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; }
+        .user-info { display: flex; align-items: center; gap: 15px; }
+        .user-avatar { width: 60px; height: 60px; background: #4f46e5; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; }
+        .tabs { display: flex; background: #f9fafb; border-radius: 16px; padding: 8px; margin-bottom: 30px; flex-wrap: wrap; }
+        .tab { padding: 12px 24px; background: none; border: none; cursor: pointer; font-weight: 600; color: #6b7280; border-radius: 12px; transition: 0.2s; }
+        .tab.active { background: #4f46e5; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .dashboard-cards, .services-grid, .deposit-methods {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px;
+        }
+        .card, .service-card, .method-card {
+            background: white; padding: 25px; border-radius: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.03); border: 1px solid #f3f4f6; transition: 0.3s; text-align: center;
+        }
+        .service-card:hover, .method-card:hover { transform: translateY(-5px); box-shadow: 0 15px 25px rgba(79,70,229,0.1); }
+        .method-card.active { border: 2px solid #4f46e5; }
+        .service-price { font-size: 28px; color: #10b981; font-weight: bold; margin: 15px 0; }
+        .status-badge { padding: 6px 14px; border-radius: 30px; font-size: 13px; font-weight: 600; display: inline-block; }
+        .status-pending { background: #fef3c7; color: #d97706; }
+        .status-processing { background: #dbeafe; color: #2563eb; }
+        .status-completed { background: #d1fae5; color: #059669; }
+        .status-approved { background: #d1fae5; color: #059669; }
+        .status-rejected { background: #fee2e2; color: #dc2626; }
+        .bank-details {
+            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+            border: 2px dashed #0ea5e9;
+            border-radius: 20px;
+            padding: 25px;
+            margin: 20px 0;
+        }
+        .order-card, .deposit-card, .referral-card, .withdrawal-card {
+            background: white; border-radius: 16px; padding: 20px; margin-bottom: 15px;
+            border: 1px solid #e5e7eb; transition: 0.2s;
+        }
+        .order-card:hover, .deposit-card:hover, .referral-card:hover, .withdrawal-card:hover { border-color: #4f46e5; }
+        .category-title { font-size: 28px; font-weight: 700; color: #1f2937; margin: 40px 0 20px; padding-bottom: 10px; border-bottom: 4px solid #4f46e5; display: inline-block; }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 52px;
+            height: 28px;
+            margin-left: 15px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .3s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #4f46e5;
+        }
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+
+        .notification {
+            position: fixed; top: 20px; right: 20px; padding: 16px 30px; border-radius: 50px;
+            color: white; font-weight: 600; z-index: 10000; animation: slideIn 0.3s ease; display: none;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+        }
+        .notification.success { background: #10b981; }
+        .notification.error { background: #ef4444; }
+        .notification.info { background: #3b82f6; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        @media (max-width: 768px) {
+            .auth-page { flex-direction: column; }
+            .auth-brand, .auth-forms { padding: 40px 30px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- ========== HOMEPAGE ========== -->
+    <div id="homepage" class="homepage container active">
+        <div class="hero-section">
+            <div class="logo"><i class="fas fa-rocket"></i> Debby Booster</div>
+            <h1 style="font-size: 48px; margin-bottom: 20px;">Boost Your Social Media Growth</h1>
+            <p class="tagline">
+                Professional social media marketing services. Get real followers, likes, views,
+                and engagement for Instagram, Twitter, YouTube, Facebook, TikTok, and more.
+            </p>
+            <div class="cta-buttons">
+                <button class="btn btn-primary" onclick="window.showAuthPage('login')">
+                    <i class="fas fa-rocket"></i> Get Started
+                </button>
+            </div>
+        </div>
+        <!-- ... rest of homepage unchanged ... -->
+    </div>
+
+    <!-- ========== AUTH PAGE – SPLIT SCREEN ========== -->
+    <div id="auth-page" class="auth-page">
+        <div class="auth-brand">
+            <i class="fas fa-rocket"></i>
+            <h2>Welcome to Debby Booster</h2>
+            <p>The #1 platform to grow your social media presence. Fast, safe, and reliable.</p>
+            <ul class="brand-features">
+                <li><i class="fas fa-check-circle"></i> Real followers & engagement</li>
+                <li><i class="fas fa-bolt"></i> Instant delivery</li>
+                <li><i class="fas fa-headset"></i> 24/7 customer support</li>
+                <li><i class="fas fa-shield-alt"></i> 100% secure payments</li>
+            </ul>
+        </div>
+        <div class="auth-forms">
+            <div class="auth-form-container">
+                <!-- LOGIN -->
+                <div id="login-form" class="auth-form active">
+                    <h3>Sign In</h3>
+                    <div class="input-group">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="login-username" placeholder="Username or Email">
+                    </div>
+                    <div class="input-group password-wrapper">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="login-password" placeholder="Password">
+                        <i class="fas fa-eye-slash" onclick="togglePassword('login-password', this)"></i>
+                    </div>
+                    <div class="input-group">
+                        <i class="fas fa-user-tag"></i>
+                        <select id="login-role">
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <button class="btn-auth" onclick="login()">Log In</button>
+                    <div class="auth-footer">
+                        Don't have an account? <a href="#" onclick="showRegisterForm()">Create one now</a>
+                    </div>
+                    <div class="auth-footer" style="margin-top: 15px;">
+                        <a href="#" onclick="showHomepage()"><i class="fas fa-arrow-left"></i> Back to Home</a>
+                    </div>
+                </div>
+                <!-- REGISTER (with referrer) -->
+                <div id="register-form" class="auth-form">
+                    <h3>Create Account</h3>
+                    <div class="register-highlight">
+                        <div class="input-group">
+                            <i class="fas fa-user"></i>
+                            <input type="text" id="reg-username" placeholder="Username">
+                        </div>
+                        <div class="input-group">
+                            <i class="fas fa-envelope"></i>
+                            <input type="email" id="reg-email" placeholder="Email">
+                        </div>
+                        <div class="input-group password-wrapper">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="reg-password" placeholder="Password">
+                            <i class="fas fa-eye-slash" onclick="togglePassword('reg-password', this)"></i>
+                        </div>
+                        <div class="input-group password-wrapper">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="reg-confirm-password" placeholder="Confirm Password">
+                            <i class="fas fa-eye-slash" onclick="togglePassword('reg-confirm-password', this)"></i>
+                        </div>
+                        <div class="input-group">
+                            <i class="fas fa-globe"></i>
+                            <select id="reg-country">
+                                <option value="">Select your country</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <i class="fas fa-gift"></i>
+                            <input type="text" id="reg-referrer" placeholder="Referrer Code (optional)">
+                        </div>
+                    </div>
+                    <button class="btn-auth" onclick="register()">Register Now</button>
+                    <div class="auth-footer">
+                        Already have an account? <a href="#" onclick="showLoginForm()">Sign in</a>
+                    </div>
+                    <div class="auth-footer" style="margin-top: 15px;">
+                        <a href="#" onclick="showHomepage()"><i class="fas fa-arrow-left"></i> Back to Home</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== USER DASHBOARD ========== -->
+    <div id="user-dashboard" class="dashboard container">
+        <div class="header">
+            <div class="user-info">
+                <div class="user-avatar" id="user-avatar">U</div>
+                <div>
+                    <h3 id="user-name">User Name</h3>
+                    <p id="user-email">user@email.com</p>
+                </div>
+            </div>
+            <div>
+                <span style="font-weight: bold; font-size: 28px; color: #10b981;">₦<span id="user-balance">0</span></span>
+                <span style="margin-left: 15px; font-size: 16px; color: #f59e0b;">Bonus: ₦<span id="user-bonus-balance">0</span></span>
+                <button class="btn btn-danger" onclick="logout()" style="margin-left: 15px; background: #ef4444; color: white; padding: 12px 24px; border-radius: 50px; border: none; cursor: pointer;"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
+        </div>
+
+        <div class="dashboard-cards">
+            <div class="card"><i class="fas fa-wallet" style="font-size: 30px; color: #4f46e5; margin-bottom: 15px;"></i><h4>Main Balance</h4><p style="font-size: 28px; font-weight: bold; color: #10b981;">₦<span id="balance-amount">0</span></p></div>
+            <div class="card"><i class="fas fa-gift" style="font-size: 30px; color: #f59e0b; margin-bottom: 15px;"></i><h4>Bonus Balance</h4><p style="font-size: 28px; font-weight: bold; color: #f59e0b;">₦<span id="bonus-balance-amount">0</span></p></div>
+            <div class="card"><i class="fas fa-shopping-cart" style="font-size: 30px; color: #4f46e5; margin-bottom: 15px;"></i><h4>Orders</h4><p style="font-size: 28px; font-weight: bold; color: #4f46e5;"><span id="orders-count">0</span></p></div>
+            <div class="card"><i class="fas fa-money-bill-wave" style="font-size: 30px; color: #4f46e5; margin-bottom: 15px;"></i><h4>Deposits</h4><p style="font-size: 28px; font-weight: bold; color: #f59e0b;"><span id="deposits-count">0</span></p></div>
+            <div class="card"><i class="fas fa-history" style="font-size: 30px; color: #4f46e5; margin-bottom: 15px;"></i><h4>Pending</h4><p style="font-size: 28px; font-weight: bold; color: #ef4444;"><span id="pending-count">0</span></p></div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('services')">Services</button>
+            <button class="tab" onclick="showTab('place-order')">Place Order</button>
+            <button class="tab" onclick="showTab('deposit')">Make Deposit</button>
+            <button class="tab" onclick="showTab('my-orders')">My Orders</button>
+            <button class="tab" onclick="showTab('my-deposits')">My Deposits</button>
+            <button class="tab" onclick="showTab('referrals')">Referrals</button>
+            <button class="tab" onclick="showTab('bonus-withdrawal')">Bonus Withdrawal</button>
+            <button class="tab" onclick="showTab('profile')">Profile</button>
+        </div>
+
+        <!-- Services -->
+        <div id="services" class="tab-content active">
+            <h3>Our Services</h3>
+            <div id="services-container"></div>
+        </div>
+
+        <!-- Place Order -->
+        <div id="place-order" class="tab-content">
+            <h3>Place New Order</h3>
+            <div style="background: #f9fafb; padding: 30px; border-radius: 20px; margin-top: 20px;">
+                <select id="order-service" style="width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb; margin-bottom: 15px;">
+                    <option value="">Select Service</option>
+                </select>
+                <div style="margin-bottom: 10px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">Quantity</label>
+                    <input type="number" id="order-quantity" placeholder="Enter quantity" style="width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb;">
+                </div>
+                <div id="order-minmax" style="font-size: 14px; color: #6b7280; margin-bottom: 15px;"></div>
+                <div style="background: #f3f4f6; padding: 15px; border-radius: 12px; margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Price per unit:</span>
+                        <span id="display-price-per-unit">₦0</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                        <span>Quantity:</span>
+                        <span id="display-quantity">0</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                        <span>Service cost:</span>
+                        <span id="display-service-cost">₦0</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                        <span>Platform Fee (₦100):</span>
+                        <span id="display-platform-fee">₦100</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #9ca3af;">
+                        <span>Total Deduction:</span>
+                        <span id="display-total">₦100</span>
+                    </div>
+                </div>
+                <textarea id="order-details" placeholder="Order Details (Username, Link, etc.)" rows="4" style="width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb; margin-bottom: 15px;"></textarea>
+                <button class="btn-auth" onclick="placeOrder()">Place Order</button>
+            </div>
+        </div>
+
+        <!-- Deposit – KORAPAY CHECKOUT (no virtual account) -->
+        <div id="deposit" class="tab-content">
+            <h3>Make Deposit</h3>
+            <div class="deposit-methods" style="margin-top: 20px;">
+                <div class="method-card active" onclick="selectDepositMethod('bank')" id="bank-method">
+                    <i class="fas fa-university" style="font-size: 40px; color: #4f46e5;"></i>
+                    <h4>Bank Transfer</h4>
+                    <p>Upload receipt – manual approval</p>
+                </div>
+                <div class="method-card" onclick="selectDepositMethod('korapay')" id="korapay-method">
+                    <i class="fas fa-credit-card" style="font-size: 40px; color: #8B5CF6;"></i>
+                    <h4>Korapay</h4>
+                    <p>Instant payment – confirm automatically</p>
+                </div>
+            </div>
+
+            <!-- Bank Transfer Form (manual approval) -->
+            <div id="bank-form" class="deposit-method-form">
+                <div class="bank-details" style="margin-top: 30px;">
+                    <h4><i class="fas fa-university"></i> Bank Details</h4>
+                    <div style="background: white; padding: 20px; border-radius: 16px; margin-top: 15px;">
+                        <p><strong>Account Number:</strong> <span id="bank-account-display">1235024410</span></p>
+                        <p><strong>Bank Name:</strong> <span id="bank-name-display">Access Bank</span></p>
+                        <p><strong>Account Name:</strong> <span id="account-name-display">Chisom Deborah Chima</span></p>
+                    </div>
+                </div>
+                <div style="background: #f9fafb; padding: 30px; border-radius: 20px; margin-top: 20px;">
+                    <input type="number" id="bank-amount" placeholder="Amount (₦)" style="width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb;">
+                    <div style="margin: 20px 0;">
+                        <label style="display: block; margin-bottom: 10px; font-weight: 600;">Upload Receipt (image)</label>
+                        <input type="file" id="bank-receipt" accept="image/*" style="padding: 12px; border: 2px solid #e5e7eb; border-radius: 16px; width: 100%;">
+                    </div>
+                    <button class="btn-auth" onclick="submitBankDeposit()">Submit Deposit</button>
+                </div>
+            </div>
+
+            <!-- KORAPAY CHECKOUT FORM (no checkbox, no virtual account) -->
+            <div id="korapay-form" class="deposit-method-form" style="display: none;">
+                <div style="background: #f9fafb; padding: 30px; border-radius: 20px; margin-top: 20px;">
+                    <h4>Korapay Payment</h4>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Amount to Deposit (₦)</label>
+                        <input type="number" id="korapay-amount" placeholder="Enter amount" style="width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb;">
+                        <p style="font-size: 14px; color: #6b7280; margin-top: 5px;">
+                            No fees – you receive the full amount.
+                        </p>
+                    </div>
+                    <button class="btn-auth" id="korapay-pay-btn" onclick="payWithKorapay()">Pay with Korapay</button>
+                    <div id="korapay-payment-status" style="margin-top: 20px; text-align: center;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- My Orders -->
+        <div id="my-orders" class="tab-content">
+            <h3>My Orders</h3>
+            <div id="user-orders-container" style="margin-top: 20px;"></div>
+        </div>
+
+        <!-- My Deposits -->
+        <div id="my-deposits" class="tab-content">
+            <h3>My Deposits</h3>
+            <div id="user-deposits-container" style="margin-top: 20px;"></div>
+        </div>
+
+        <!-- Referrals -->
+        <div id="referrals" class="tab-content">
+            <h3>Referrals & Bonuses</h3>
+            <div style="background: linear-gradient(145deg, #faf5ff, #f3e8ff); padding: 30px; border-radius: 20px; margin-top: 20px;">
+                <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+                    <div style="flex: 1;">
+                        <h4>Your Referral Code</h4>
+                        <div style="display: flex; align-items: center; gap: 10px; background: white; padding: 15px; border-radius: 12px; margin-top: 10px;">
+                            <span id="user-referral-code" style="font-size: 24px; font-weight: bold; color: #4f46e5; font-family: monospace;"></span>
+                            <button class="btn btn-success" onclick="copyReferralCode()" style="padding: 8px 16px; font-size: 14px;">Copy</button>
+                        </div>
+                        <p style="color: #6b7280; margin-top: 10px;">Share this code with friends. You get ₦<span id="referral-bonus-amount-display">100</span> when they deposit at least ₦<span id="referral-min-deposit-display">200</span> AND place an order!</p>
+                    </div>
+                    <div style="background: white; padding: 20px; border-radius: 16px; min-width: 200px;">
+                        <h4>Referral Stats</h4>
+                        <p style="margin-top: 10px;"><strong>Total Referrals:</strong> <span id="referral-count">0</span></p>
+                        <p><strong>Bonus Earned:</strong> ₦<span id="referral-bonus-earned">0</span></p>
+                    </div>
+                </div>
+                <div style="margin-top: 30px;">
+                    <h4>Your Referrals</h4>
+                    <div id="referrals-list" style="margin-top: 15px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bonus Withdrawal -->
+        <div id="bonus-withdrawal" class="tab-content">
+            <h3>Withdraw Referral Bonus</h3>
+            <div style="background: #f9fafb; padding: 30px; border-radius: 20px; margin-top: 20px;">
+                <div style="background: white; padding: 20px; border-radius: 16px; margin-bottom: 20px;">
+                    <p><strong>Available Bonus Balance:</strong> ₦<span id="withdrawable-bonus">0</span></p>
+                    <p><strong>Minimum Withdrawal:</strong> ₦<span id="min-withdrawal-amount">1500</span></p>
+                </div>
+                <div style="background: white; padding: 20px; border-radius: 16px;">
+                    <div class="input-group">
+                        <i class="fas fa-money-bill-wave"></i>
+                        <input type="number" id="withdrawal-amount" placeholder="Amount to withdraw" style="width: 100%; padding: 16px 16px 16px 48px; border-radius: 16px; border: 2px solid #e5e7eb;">
+                    </div>
+                    <button class="btn-auth" onclick="requestBonusWithdrawal()">Request Withdrawal</button>
+                </div>
+                <div style="margin-top: 30px;">
+                    <h4>Withdrawal History</h4>
+                    <div id="withdrawal-history-container" style="margin-top: 15px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile -->
+        <div id="profile" class="tab-content">
+            <h3>My Profile</h3>
+            <div style="background: #f9fafb; padding: 30px; border-radius: 20px; margin-top: 20px;">
+                <h4>Account Information</h4>
+                <div style="background: white; padding: 20px; border-radius: 16px; margin: 15px 0;">
+                    <p><strong>Username:</strong> <span id="profile-username"></span></p>
+                    <p><strong>Email:</strong> <span id="profile-email"></span></p>
+                    <p><strong>Country:</strong> <span id="profile-country"></span></p>
+                    <p><strong>Referral Code:</strong> <span id="profile-referral-code"></span></p>
+                    <p><strong>Joined:</strong> <span id="profile-joined"></span></p>
+                </div>
+                <h4 style="margin-top: 30px;">Update Password</h4>
+                <div class="input-group password-wrapper" style="margin-top: 10px;">
+                    <input type="password" id="current-password" placeholder="Current Password">
+                    <i class="fas fa-eye-slash" onclick="togglePassword('current-password', this)"></i>
+                </div>
+                <div class="input-group password-wrapper">
+                    <input type="password" id="new-password" placeholder="New Password">
+                    <i class="fas fa-eye-slash" onclick="togglePassword('new-password', this)"></i>
+                </div>
+                <div class="input-group password-wrapper">
+                    <input type="password" id="confirm-password" placeholder="Confirm Password">
+                    <i class="fas fa-eye-slash" onclick="togglePassword('confirm-password', this)"></i>
+                </div>
+                <button class="btn-auth" onclick="updatePassword()">Update Password</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== ADMIN DASHBOARD ========== -->
+    <div id="admin-dashboard" class="dashboard container">
+        <div class="header">
+            <div class="user-info">
+                <div class="user-avatar" style="background: #ef4444;">A</div>
+                <div>
+                    <h3>Admin Dashboard</h3>
+                    <p>Debby Booster Management</p>
+                </div>
+            </div>
+            <div>
+                <span style="font-weight: bold; font-size: 20px; color: #10b981;">Total Revenue: ₦<span id="total-revenue">0</span></span>
+                <button class="btn btn-danger" onclick="logout()" style="margin-left: 15px; background: #ef4444; color: white; padding: 12px 24px; border-radius: 50px; border: none;"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
+        </div>
+
+        <div class="dashboard-cards">
+            <div class="card"><i class="fas fa-users" style="font-size: 30px; color: #4f46e5;"></i><h4>Total Users</h4><p style="font-size: 28px; font-weight: bold; color: #4f46e5;"><span id="total-users">0</span></p></div>
+            <div class="card"><i class="fas fa-shopping-cart" style="font-size: 30px; color: #4f46e5;"></i><h4>Total Orders</h4><p style="font-size: 28px; font-weight: bold; color: #10b981;"><span id="total-orders">0</span></p></div>
+            <div class="card"><i class="fas fa-money-bill-wave" style="font-size: 30px; color: #4f46e5;"></i><h4>Total Deposits</h4><p style="font-size: 28px; font-weight: bold; color: #f59e0b;">₦<span id="total-deposits">0</span></p></div>
+            <div class="card"><i class="fas fa-clock" style="font-size: 30px; color: #4f46e5;"></i><h4>Pending</h4><p style="font-size: 28px; font-weight: bold; color: #ef4444;"><span id="admin-pending">0</span></p></div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showAdminTab('order-service')">Order Service</button>
+            <button class="tab" onclick="showAdminTab('order-management')">Order Management</button>
+            <button class="tab" onclick="showAdminTab('deposit-management')">Deposit Management</button>
+            <button class="tab" onclick="showAdminTab('user-management')">User Management</button>
+            <button class="tab" onclick="showAdminTab('payment-management')">Payment Management</button>
+            <button class="tab" onclick="showAdminTab('order-api')">Order API</button>
+            <button class="tab" onclick="showAdminTab('referral-settings')">Referral Settings</button>
+            <button class="tab" onclick="showAdminTab('withdrawal-management')">Withdrawal Management</button>
+            <button class="tab" onclick="showAdminTab('email-management')">Email Management</button>
+        </div>
+
+        <!-- Order Service -->
+        <div id="order-service" class="tab-content active">
+            <h3>Manage Services</h3>
+            <div style="background: #f9fafb; padding: 30px; border-radius: 20px; margin-top: 20px;">
+                <input type="hidden" id="edit-service-id">
+                <input type="text" id="service-name" placeholder="Service Name" style="width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb; margin-bottom: 15px;">
+                <select id="service-category" onchange="updateSubcategories()" style="width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb; margin-bottom: 15px;">
+                    <option value="">Select Category</option>
+                    <option value="Instagram">Instagram</option>
+                    <option value="Twitter">Twitter</option>
+                    <option value="YouTube">YouTube</option>
+                    <option value="Facebook">Facebook</option>
+                    <option value="TikTok">TikTok</option>
+                    <option value="Other">Other</option>
+                </select>
+                <select id="service-subcategory" style="width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb; margin-bottom: 15px;">
+                    <option value="">Select Subcategory</option>
+                </select>
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <input type="number" id="service-min-quantity" placeholder="Min Quantity" style="flex: 1; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb;">
+                    <input type="number" id="service-max-quantity" placeholder="Max Quantity" style="flex: 1; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb;">
+                </div>
+                <input type="number" step="0.01" id="service-price-per-unit" placeholder="Price per Unit (₦)" style="width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb; margin-bottom: 15px;">
+                <textarea id="service-description" placeholder="Description" rows="3" style="width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb; margin-bottom: 15px;"></textarea>
+                <button class="btn-auth" onclick="saveService()">Save Service</button>
+            </div>
+            <div style="margin-top: 40px;">
+                <h4>Current Services</h4>
+                <div id="admin-services-list" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+
+        <!-- Order Management -->
+        <div id="order-management" class="tab-content">
+            <h3>Order Management</h3>
+            <div id="admin-orders-container" style="margin-top: 20px;"></div>
+        </div>
+
+        <!-- Deposit Management -->
+        <div id="deposit-management" class="tab-content">
+            <h3>Deposit Management</h3>
+            <div id="admin-deposits-container" style="margin-top: 20px;"></div>
+        </div>
+
+        <!-- User Management -->
+        <div id="user-management" class="tab-content">
+            <h3>User Management</h3>
+            <div id="admin-users-container" style="margin-top: 20px;"></div>
+        </div>
+
+        <!-- PAYMENT MANAGEMENT -->
+        <div id="payment-management" class="tab-content">
+            <h3>Payment Management</h3>
+            <div style="background: #f9fafb; padding: 30px; border-radius: 20px; margin-top: 20px;">
+                <!-- Bank Transfer -->
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+                    <h4 style="margin-bottom: 0;">Bank Transfer</h4>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="bank-enabled" checked onchange="togglePaymentMethod('bank')">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div id="bank-settings" style="background: white; padding: 20px; border-radius: 16px; margin-bottom: 30px;">
+                    <input type="text" id="admin-bank-account" placeholder="Account Number" value="1235024410" style="width: 100%; padding: 12px; border-radius: 12px; border: 2px solid #e5e7eb; margin-bottom: 10px;">
+                    <input type="text" id="admin-bank-name" placeholder="Bank Name" value="Access Bank" style="width: 100%; padding: 12px; border-radius: 12px; border: 2px solid #e5e7eb; margin-bottom: 10px;">
+                    <input type="text" id="admin-account-name" placeholder="Account Name" value="Chisom Deborah Chima" style="width: 100%; padding: 12px; border-radius: 12px; border: 2px solid #e5e7eb; margin-bottom: 10px;">
+                    <button class="btn-auth" onclick="saveBankSettings()" style="margin-top: 10px;">Save Bank Details</button>
+                </div>
+
+                <!-- Korapay Settings -->
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+                    <h4 style="margin-bottom: 0;">Korapay</h4>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="korapay-enabled" checked onchange="togglePaymentMethod('korapay')">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div id="korapay-settings" style="background: white; padding: 20px; border-radius: 16px; margin-bottom: 20px;">
+                    <h5 style="margin-bottom: 15px;">API Credentials</h5>
+                    <input type="text" id="korapay-public-key" placeholder="Public Key" style="width: 100%; padding: 12px; border-radius: 12px; border: 2px solid #e5e7eb; margin-bottom: 10px;">
+                    <input type="text" id="korapay-secret-key" placeholder="Secret Key" style="width: 100%; padding: 12px; border-radius: 12px; border: 2px solid #e5e7eb; margin-bottom: 10px;">
+                    <input type="text" id="korapay-callback-url" placeholder="Callback URL" value="https://your-backend.onrender.com/api/korapay/webhook" style="width: 100%; padding: 12px; border-radius: 12px; border: 2px solid #e5e7eb; margin-bottom: 20px;">
+
+                    <h5 style="margin-bottom: 15px;">Fee Settings</h5>
+                    <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                        <input type="number" step="0.01" id="korapay-fee" placeholder="Fee (₦)" value="1.68" style="flex: 1; padding: 12px; border-radius: 12px; border: 2px solid #e5e7eb;">
+                    </div>
+                    <button class="btn-auth" onclick="saveKorapaySettings()">Save Korapay Settings</button>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ORDER API SETTINGS -->
+<div id="order-api" class="tab-content">
+    <h3>Automated Order API</h3>
+    <div style="background: #f9fafb; padding: 30px; border-radius: 20px; margin-top: 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <h4 style="margin-bottom: 0;">Auto‑Processing</h4>
+            <label class="toggle-switch">
+                <input type="checkbox" id="api-auto-process" checked onchange="toggleApiAutoProcess()">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div style="background: white; padding: 20px; border-radius: 16px; margin-bottom: 20px;">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">API Endpoint URL</label>
+                <input type="url" id="api-endpoint" placeholder="https://exosupplier.com/api/v2/order" value="https://exosupplier.com/api/v2/order" style="width: 100%; padding: 12px; border-radius: 12px; border: 2px solid #e5e7eb;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Exosupplier Access Key</label>
+                <input type="text" id="api-exosp-access" placeholder="Your Access Key" style="width: 100%; padding: 12px; border-radius: 12px; border: 2px solid #e5e7eb;">
+                <p style="font-size: 12px; color: #6b7280; margin-top: 5px;">This is the key you can see in your dashboard (x-exosp-access header).</p>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Exosupplier Secret Key</label>
+                <input type="text" id="api-exosp-secret" placeholder="Your Secret Key" style="width: 100%; padding: 12px; border-radius: 12px; border: 2px solid #e5e7eb;">
+                <p style="font-size: 12px; color: #6b7280; margin-top: 5px;">This key is shown only once when generated. If lost, you must delete and regenerate [citation:1].</p>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">Request Timeout (seconds)</label>
+                <input type="number" id="api-timeout" placeholder="Timeout" value="30" style="width: 100%; padding: 12px; border-radius: 12px; border: 2px solid #e5e7eb;">
+            </div>
+            <button class="btn-auth" onclick="saveApiSettings()">Save API Settings</button>
+        </div>
+        <div style="background: white; padding: 20px; border-radius: 16px;">
+            <h4>API Test</h4>
+            <p style="color: #6b7280; margin-bottom: 15px;">Test your API configuration with a sample order.</p>
+            <button class="btn btn-success" onclick="testApiConnection()" style="padding: 12px 24px;">Test Connection</button>
+        </div>
+    </div>
+</div>
+
+        <!-- Referral Settings -->
+        <div id="referral-settings" class="tab-content">
+            <h3>Referral Bonus Settings</h3>
+            <div style="background: #f9fafb; padding: 30px; border-radius: 20px; margin-top: 20px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+                    <h4 style="margin-bottom: 0;">Referral System</h4>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="referral-enabled" checked onchange="toggleReferralSystem()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div style="background: white; padding: 20px; border-radius: 16px; margin-bottom: 20px;">
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Bonus Amount (₦)</label>
+                        <input type="number" id="referral-bonus-amount" placeholder="Bonus Amount" value="100" style="width: 100%; padding: 12px; border-radius: 12px; border: 2px solid #e5e7eb;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Minimum Deposit to Qualify (₦)</label>
+                        <input type="number" id="referral-min-deposit" placeholder="Minimum Deposit" value="200" style="width: 100%; padding: 12px; border-radius: 12px; border: 2px solid #e5e7eb;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">Minimum Withdrawal Amount (₦)</label>
+                        <input type="number" id="referral-min-withdrawal" placeholder="Min Withdrawal" value="1500" style="width: 100%; padding: 12px; border-radius: 12px; border: 2px solid #e5e7eb;">
+                    </div>
+                    <button class="btn-auth" onclick="saveReferralSettings()">Save Referral Settings</button>
+                </div>
+                <div style="background: white; padding: 20px; border-radius: 16px;">
+                    <h4>Referral Statistics</h4>
+                    <p style="margin-top: 10px;"><strong>Total Referral Bonuses Paid:</strong> ₦<span id="total-referral-bonuses">0</span></p>
+                    <p><strong>Number of Successful Referrals:</strong> <span id="total-successful-referrals">0</span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Withdrawal Management -->
+        <div id="withdrawal-management" class="tab-content">
+            <h3>Bonus Withdrawal Requests</h3>
+            <div id="admin-withdrawals-container" style="margin-top: 20px;"></div>
+        </div>
+
+        <!-- Email Management -->
+        <div id="email-management" class="tab-content">
+            <h3>Email Management</h3>
+            <div style="background: #f9fafb; padding: 30px; border-radius: 20px; margin-top: 20px;">
+                <h4>Send Email to All Users</h4>
+                <input type="text" id="email-subject" placeholder="Subject" style="width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb; margin-bottom: 15px;">
+                <textarea id="email-message" placeholder="Message" rows="6" style="width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb; margin-bottom: 15px;"></textarea>
+                <button class="btn-auth" onclick="sendEmailToAll()">Send Email to All Users</button>
+
+                <h4 style="margin-top: 40px;">Send Email to Specific User</h4>
+                <select id="email-user" style="width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb; margin-bottom: 15px;">
+                    <option value="">Select User</option>
+                </select>
+                <input type="text" id="single-email-subject" placeholder="Subject" style="width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb; margin-bottom: 15px;">
+                <textarea id="single-email-message" placeholder="Message" rows="4" style="width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb; margin-bottom: 15px;"></textarea>
+                <button class="btn-auth" onclick="sendEmailToUser()">Send Email to User</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <script>
+        // ========== BACKEND API URL (RENDER) – UPDATE THIS AFTER DEPLOYMENT ==========
+        const BACKEND_URL = 'https://debby-booster-backend.onrender.com'; 
+
+        // ========== 🔥 FIREBASE CONFIG (YOURS) ==========
+        const firebaseConfig = {
+            apiKey: "AIzaSyDG1XdYjBxm_h4qgZvAac_mcFdK6NNwKs8",
+            authDomain: "debbybooster.firebaseapp.com",
+            databaseURL: "https://debbybooster-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "debbybooster",
+            storageBucket: "debbybooster.firebasestorage.app",
+            messagingSenderId: "530763088863",
+            appId: "1:530763088863:web:c6e8a85ecb926269543a6a"
+        };
+
+        // ========== GUARANTEED NAVIGATION ==========
+        window.showAuthPage = function(form = 'login') {
+            const screens = ['homepage', 'auth-page', 'user-dashboard', 'admin-dashboard'];
+            screens.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('active');
+            });
+            const authPage = document.getElementById('auth-page');
+            if (authPage) authPage.classList.add('active');
+            if (form === 'login') {
+                document.getElementById('login-form')?.classList.add('active');
+                document.getElementById('register-form')?.classList.remove('active');
+            } else {
+                document.getElementById('register-form')?.classList.add('active');
+                document.getElementById('login-form')?.classList.remove('active');
+            }
+        };
+
+        window.showHomepage = function() {
+            const screens = ['homepage', 'auth-page', 'user-dashboard', 'admin-dashboard'];
+            screens.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('active');
+            });
+            document.getElementById('homepage')?.classList.add('active');
+        };
+
+        // ========== FIREBASE INIT ==========
+        let firebaseInitialized = false;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            firebaseInitialized = true;
+            console.log("🔥 Firebase connected – cross‑device login ACTIVE");
+        } catch (e) {
+            console.error("❌ Firebase init failed, falling back to localStorage", e);
+        }
+
+        // ========== STORAGE KEYS ==========
+        const STORAGE_KEYS = {
+            USERS: 'debby_users_v16',
+            ORDERS: 'debby_orders_v16',
+            DEPOSITS: 'debby_deposits_v16',
+            SERVICES: 'debby_services_v16',
+            WITHDRAWALS: 'debby_withdrawals_v16',
+            CURRENT_USER: 'debby_current_user_v16',
+            SETTINGS: 'debby_settings_v16',
+            REFERRALS: 'debby_referrals_v16',
+            API_SETTINGS: 'debby_api_v16'
+        };
+
+        // ========== CATEGORIES ==========
+        const CATEGORIES = {
+            Instagram: ['Followers', 'Likes', 'Views', 'Comments'],
+            Twitter: ['Followers', 'Likes', 'Retweets', 'Views'],
+            YouTube: ['Subscribers', 'Views', 'Likes', 'Comments'],
+            Facebook: ['Page Likes', 'Post Likes', 'Followers', 'Views'],
+            TikTok: ['Followers', 'Likes', 'Views', 'Shares'],
+            Other: ['Custom']
+        };
+
+        // ========== GLOBAL STATE ==========
+        let users = [];
+        let orders = [];
+        let deposits = [];
+        let services = [];
+        let withdrawals = [];
+        let currentUser = null;
+        let currentDepositMethod = 'bank';
+        let korapayTimeouts = {};
+
+        const ADMIN_PASSWORD = 'Teddybear#081';
+        const PLATFORM_FEE = 0; // fee removed
+
+        let paymentMethods = {
+            bank: { enabled: true, accountNumber: '1235024410', bankName: 'Access Bank', accountName: 'Chisom Deborah Chima' },
+            korapay: { 
+                enabled: true, 
+                publicKey: '', 
+                secretKey: '', 
+                callbackUrl: 'https://debby-booster-backend.onrender.com/api/korapay/webhook',
+                fee: 0
+            }
+        };
+
+        let apiSettings = {
+    autoProcess: true,
+    endpoint: '',
+    exospAccessKey: '',
+    exospSecretKey: '',
+    timeout: 30
+};
+
+        let referralSettings = {
+            enabled: true,
+            bonusAmount: 100,
+            minDeposit: 200,
+            minWithdrawal: 1500
+        };
+
+        // ========== HIDE ALL SCREENS ==========
+        function hideAllScreens() {
+            ['homepage', 'auth-page', 'user-dashboard', 'admin-dashboard'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('active');
+            });
+        }
+
+        // ========== SHOW LOGIN/REGISTER FORMS ==========
+        window.showLoginForm = function() {
+            document.getElementById('login-form')?.classList.add('active');
+            document.getElementById('register-form')?.classList.remove('active');
+        };
+
+        window.showRegisterForm = function() {
+            document.getElementById('register-form')?.classList.add('active');
+            document.getElementById('login-form')?.classList.remove('active');
+        };
+
+        // ========== UTILITIES ==========
+        async function hashPassword(password) {
+            if (window.crypto?.subtle) {
+                try {
+                    const encoder = new TextEncoder();
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(password));
+                    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,'0')).join('');
+                } catch(e) {}
+            }
+            let hash = 0;
+            for (let i = 0; i < password.length; i++) hash = ((hash << 5) - hash) + password.charCodeAt(i) | 0;
+            return hash.toString(16) + password.length;
+        }
+
+        function generateReferralCode(username) {
+            return 'REF_' + username + '_' + Math.random().toString(36).substr(2, 4).toUpperCase();
+        }
+
+        window.togglePassword = function(inputId, icon) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            }
+        };
+
+        function showNotification(msg, type = 'info') {
+            const n = document.getElementById('notification');
+            if (!n) return;
+            n.textContent = msg;
+            n.className = `notification ${type}`;
+            n.style.display = 'block';
+            setTimeout(() => n.style.display = 'none', 4000);
+        }
+
+        // ========== FIREBASE LOAD (PRIMARY) ==========
+        async function loadAllData() {
+            let loadedFromFirebase = false;
+            if (firebaseInitialized) {
+                try {
+                    const db = firebase.database();
+                    const snapshot = await db.ref('/').once('value');
+                    const fbData = snapshot.val() || {};
+                    users = fbData.users ? Object.values(fbData.users) : [];
+                    orders = fbData.orders ? Object.values(fbData.orders) : [];
+                    deposits = fbData.deposits ? Object.values(fbData.deposits) : [];
+                    services = fbData.services ? Object.values(fbData.services) : [];
+                    withdrawals = fbData.withdrawals ? Object.values(fbData.withdrawals) : [];
+                    paymentMethods = fbData.paymentMethods || paymentMethods;
+                    apiSettings = fbData.apiSettings || apiSettings;
+                    referralSettings = fbData.referralSettings || referralSettings;
+                    loadedFromFirebase = true;
+                    console.log("✅ Loaded from Firebase");
+                } catch (e) {
+                    console.error("Firebase read failed, fallback to localStorage", e);
+                }
+            }
+            if (!loadedFromFirebase) {
+                // localStorage fallback
+                users = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
+                orders = JSON.parse(localStorage.getItem(STORAGE_KEYS.ORDERS) || '[]');
+                deposits = JSON.parse(localStorage.getItem(STORAGE_KEYS.DEPOSITS) || '[]');
+                services = JSON.parse(localStorage.getItem(STORAGE_KEYS.SERVICES) || '[]');
+                withdrawals = JSON.parse(localStorage.getItem(STORAGE_KEYS.WITHDRAWALS) || '[]');
+                const sp = localStorage.getItem(STORAGE_KEYS.SETTINGS + '_payment');
+                if (sp) try { paymentMethods = JSON.parse(sp); } catch(e) {}
+                const sa = localStorage.getItem(STORAGE_KEYS.API_SETTINGS);
+                if (sa) try { apiSettings = JSON.parse(sa); } catch(e) {}
+                const sr = localStorage.getItem(STORAGE_KEYS.REFERRALS);
+                if (sr) try { referralSettings = JSON.parse(sr); } catch(e) {}
+            }
+
+            // ensure admin
+            let admin = users.find(u => u.username === 'admin' && u.role === 'admin');
+            if (!admin) {
+                admin = {
+                    id: 'admin001',
+                    username: 'admin',
+                    email: 'chimachisom188@gmail.com',
+                    role: 'admin',
+                    balance: 0,
+                    referralBonus: 0,
+                    totalReferralBonusEarned: 0,
+                    joined: new Date().toISOString(),
+                    isActive: true,
+                    country: 'Nigeria'
+                };
+                admin.passwordHash = await hashPassword(ADMIN_PASSWORD);
+                users.push(admin);
+            }
+            if (!admin.passwordHash) admin.passwordHash = await hashPassword(ADMIN_PASSWORD);
+
+            // migrate services
+            services = services.map(s => ({
+                ...s,
+                minQuantity: s.minQuantity || (s.min || 50),
+                maxQuantity: s.maxQuantity || (s.max || 5000),
+                pricePerUnit: s.pricePerUnit || (s.price ? s.price / 1000 : 1.5)
+            }));
+
+            for (let u of users) {
+                if (!u.country) u.country = 'Nigeria';
+                if (u.password && !u.passwordHash) {
+                    u.passwordHash = await hashPassword(u.password);
+                    delete u.password;
+                }
+                if (!u.referralCode) u.referralCode = generateReferralCode(u.username);
+                if (!u.referralStats) u.referralStats = { totalReferrals: 0, totalBonusEarned: 0, referredUsers: [] };
+                if (!u.referredBy) u.referredBy = null;
+                if (u.referralBonus === undefined) u.referralBonus = 0;
+                if (u.totalReferralBonusEarned === undefined) u.totalReferralBonusEarned = 0;
+                if (u.withdrawnReferralBonus === undefined) u.withdrawnReferralBonus = 0;
+                if (u.referralBonusGiven === undefined) u.referralBonusGiven = false;
+            }
+
+            if (services.length === 0) {
+                services = [
+                    { id: '1', name: 'Instagram Followers', category: 'Instagram', subcategory: 'Followers', minQuantity: 50, maxQuantity: 5000, pricePerUnit: 1.5, description: 'Real & Active Followers (per follower)' },
+                    { id: '2', name: 'Instagram Likes', category: 'Instagram', subcategory: 'Likes', minQuantity: 30, maxQuantity: 3000, pricePerUnit: 0.8, description: 'Premium Likes (per like)' },
+                    { id: '3', name: 'Twitter Followers', category: 'Twitter', subcategory: 'Followers', minQuantity: 50, maxQuantity: 5000, pricePerUnit: 1.2, description: 'Active Followers (per follower)' },
+                    { id: '4', name: 'YouTube Views', category: 'YouTube', subcategory: 'Views', minQuantity: 100, maxQuantity: 10000, pricePerUnit: 0.25, description: 'High Retention Views (per view)' },
+                    { id: '5', name: 'Facebook Page Likes', category: 'Facebook', subcategory: 'Page Likes', minQuantity: 50, maxQuantity: 5000, pricePerUnit: 1.8, description: 'Real Page Likes (per like)' },
+                    { id: '6', name: 'TikTok Followers', category: 'TikTok', subcategory: 'Followers', minQuantity: 50, maxQuantity: 5000, pricePerUnit: 2.0, description: 'Active Followers (per follower)' }
+                ];
+            }
+
+            if (!loadedFromFirebase && firebaseInitialized) {
+                saveAllData();
+            }
+
+            const savedCurrent = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+            if (savedCurrent) {
+                try {
+                    const { id } = JSON.parse(savedCurrent);
+                    currentUser = users.find(u => u.id === id) || null;
+                } catch(e) { currentUser = null; }
+            }
+        }
+
+        async function saveAllData() {
+            localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+            localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(services));
+            localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+            localStorage.setItem(STORAGE_KEYS.DEPOSITS, JSON.stringify(deposits));
+            localStorage.setItem(STORAGE_KEYS.WITHDRAWALS, JSON.stringify(withdrawals));
+            localStorage.setItem(STORAGE_KEYS.SETTINGS + '_payment', JSON.stringify(paymentMethods));
+            localStorage.setItem(STORAGE_KEYS.API_SETTINGS, JSON.stringify(apiSettings));
+            localStorage.setItem(STORAGE_KEYS.REFERRALS, JSON.stringify(referralSettings));
+            if (currentUser) localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify({ id: currentUser.id }));
+            else localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+
+            if (firebaseInitialized) {
+                try {
+                    const db = firebase.database();
+                    const updates = {};
+                    const toObj = (arr) => arr.reduce((acc, item) => { acc[item.id] = item; return acc; }, {});
+                    updates['/users'] = toObj(users);
+                    updates['/orders'] = toObj(orders);
+                    updates['/deposits'] = toObj(deposits);
+                    updates['/services'] = toObj(services);
+                    updates['/withdrawals'] = toObj(withdrawals);
+                    updates['/paymentMethods'] = paymentMethods;
+                    updates['/apiSettings'] = apiSettings;
+                    updates['/referralSettings'] = referralSettings;
+                    await db.ref().update(updates);
+                    console.log("✅ Saved to Firebase");
+                } catch(e) { console.error("Firebase save failed", e); }
+            }
+        }
+
+        // ========== AUTH ==========
+        window.login = async function() {
+            const username = document.getElementById('login-username')?.value.trim();
+            const password = document.getElementById('login-password')?.value;
+            const role = document.getElementById('login-role')?.value;
+            if (!username || !password) return showNotification('Enter username and password', 'error');
+            if (role === 'admin' && username === 'admin') {
+                const adminUser = users.find(u => u.username === 'admin' && u.role === 'admin');
+                if (adminUser) {
+                    const inputHash = await hashPassword(password);
+                    if (inputHash === adminUser.passwordHash || password === ADMIN_PASSWORD) {
+                        currentUser = adminUser;
+                        saveAllData();
+                        showNotification('Admin login successful', 'success');
+                        showAdminDashboard();
+                        return;
+                    }
+                }
+            }
+            const user = users.find(u =>
+                (u.username.toLowerCase() === username.toLowerCase() || u.email.toLowerCase() === username.toLowerCase()) &&
+                u.role === role && u.isActive !== false
+            );
+            if (user) {
+                const inputHash = await hashPassword(password);
+                if (inputHash === user.passwordHash) {
+                    currentUser = user;
+                    saveAllData();
+                    showNotification('Login successful', 'success');
+                    user.role === 'admin' ? showAdminDashboard() : showUserDashboard();
+                    return;
+                }
+            }
+            showNotification('Invalid credentials', 'error');
+        };
+
+        window.register = async function() {
+            const username = document.getElementById('reg-username')?.value.trim();
+            const email = document.getElementById('reg-email')?.value.trim();
+            const password = document.getElementById('reg-password')?.value;
+            const confirm = document.getElementById('reg-confirm-password')?.value;
+            const country = document.getElementById('reg-country')?.value;
+            const referrerCode = document.getElementById('reg-referrer')?.value.trim();
+
+            if (!username || !email || !password || !confirm || !country)
+                return showNotification('All fields required', 'error');
+            if (password !== confirm) return showNotification('Passwords do not match', 'error');
+            if (password.length < 6) return showNotification('Password must be at least 6 characters', 'error');
+            if (!/^\S+@\S+\.\S+$/.test(email)) return showNotification('Valid email required', 'error');
+            if (users.some(u => u.username.toLowerCase() === username.toLowerCase()))
+                return showNotification('Username taken', 'error');
+            if (users.some(u => u.email.toLowerCase() === email.toLowerCase()))
+                return showNotification('Email already registered', 'error');
+
+            const passwordHash = await hashPassword(password);
+            const referralCode = generateReferralCode(username);
+            let referredBy = null;
+            if (referrerCode && referralSettings.enabled) {
+                const referrer = users.find(u => u.referralCode === referrerCode);
+                if (referrer) referredBy = referrer.id;
+            }
+
+            const newUser = {
+                id: 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                username, email, passwordHash, country,
+                role: 'user', balance: 0, referralBonus: 0,
+                totalReferralBonusEarned: 0, withdrawnReferralBonus: 0,
+                joined: new Date().toISOString(), isActive: true,
+                referralCode, referredBy,
+                referralStats: { totalReferrals: 0, totalBonusEarned: 0, referredUsers: [] },
+                referralBonusGiven: false
+            };
+            users.push(newUser);
+            currentUser = newUser;
+            saveAllData();
+            showNotification('Registration successful!', 'success');
+            showUserDashboard();
+        };
+
+        window.logout = function() {
+            currentUser = null;
+            localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+            showHomepage();
+        };
+
+        // ========== USER DASHBOARD ==========
+        function showUserDashboard() {
+            hideAllScreens();
+            document.getElementById('user-dashboard').classList.add('active');
+            updateUserDashboard();
+        }
+
+        function updateUserDashboard() {
+            if (!currentUser) return;
+            document.getElementById('user-name').textContent = currentUser.username;
+            document.getElementById('user-email').textContent = currentUser.email;
+            document.getElementById('user-avatar').textContent = currentUser.username.charAt(0).toUpperCase();
+            document.getElementById('user-balance').textContent = currentUser.balance.toLocaleString();
+            document.getElementById('balance-amount').textContent = currentUser.balance.toLocaleString();
+            document.getElementById('user-bonus-balance').textContent = (currentUser.referralBonus || 0).toLocaleString();
+            document.getElementById('bonus-balance-amount').textContent = (currentUser.referralBonus || 0).toLocaleString();
+
+            const userOrders = orders.filter(o => o.userId === currentUser.id);
+            const userDeposits = deposits.filter(d => d.userId === currentUser.id);
+            document.getElementById('orders-count').textContent = userOrders.length;
+            document.getElementById('deposits-count').textContent = userDeposits.length;
+            document.getElementById('pending-count').textContent = userOrders.filter(o => o.status === 'pending').length;
+
+            document.getElementById('profile-username').textContent = currentUser.username;
+            document.getElementById('profile-email').textContent = currentUser.email;
+            document.getElementById('profile-country').textContent = currentUser.country || 'Nigeria';
+            document.getElementById('profile-joined').textContent = new Date(currentUser.joined).toLocaleDateString();
+            document.getElementById('profile-referral-code').textContent = currentUser.referralCode || '';
+
+            document.getElementById('user-referral-code').textContent = currentUser.referralCode || '';
+            document.getElementById('referral-bonus-amount-display').textContent = referralSettings.bonusAmount;
+            document.getElementById('referral-min-deposit-display').textContent = referralSettings.minDeposit;
+            document.getElementById('referral-count').textContent = currentUser.referralStats?.totalReferrals || 0;
+            document.getElementById('referral-bonus-earned').textContent = (currentUser.totalReferralBonusEarned || 0).toFixed(2);
+
+            document.getElementById('withdrawable-bonus').textContent = (currentUser.referralBonus || 0).toLocaleString();
+            document.getElementById('min-withdrawal-amount').textContent = referralSettings.minWithdrawal;
+
+            renderServices();
+            renderUserOrders();
+            renderUserDeposits();
+            renderReferralsList();
+            renderWithdrawalHistory();
+            initializeServicesDropdown();
+
+            // Update Korapay UI – no fees
+            document.getElementById('korapay-fee-display')?.remove(); // remove if exists
+        }
+
+        // ========== REFERRAL BONUS – DEPOSIT + ORDER REQUIRED ==========
+        function checkAndGiveReferralBonusForUser(userId) {
+            if (!referralSettings.enabled) return;
+            const user = users.find(u => u.id === userId);
+            if (!user) return;
+            if (!user.referredBy) return;
+            if (user.referralBonusGiven) return;
+
+            const qualifyingDeposit = deposits.find(d => 
+                d.userId === userId && 
+                d.status === 'approved' && 
+                d.amount >= referralSettings.minDeposit
+            );
+            if (!qualifyingDeposit) return;
+
+            const hasOrder = orders.some(o => o.userId === userId);
+            if (!hasOrder) return;
+
+            const referrer = users.find(u => u.id === user.referredBy);
+            if (!referrer) return;
+
+            referrer.referralBonus = (referrer.referralBonus || 0) + referralSettings.bonusAmount;
+            referrer.totalReferralBonusEarned = (referrer.totalReferralBonusEarned || 0) + referralSettings.bonusAmount;
+            if (!referrer.referralStats) {
+                referrer.referralStats = { totalReferrals: 0, totalBonusEarned: 0, referredUsers: [] };
+            }
+            if (!referrer.referralStats.referredUsers.includes(user.id)) {
+                referrer.referralStats.referredUsers.push(user.id);
+                referrer.referralStats.totalReferrals = (referrer.referralStats.totalReferrals || 0) + 1;
+            }
+            referrer.referralStats.totalBonusEarned = (referrer.referralStats.totalBonusEarned || 0) + referralSettings.bonusAmount;
+            user.referralBonusGiven = true;
+
+            showNotification(`Referral bonus of ₦${referralSettings.bonusAmount} added to your bonus balance!`, 'success');
+            saveAllData();
+        }
+
+        // ========== BONUS WITHDRAWAL ==========
+        window.requestBonusWithdrawal = function() {
+            if (!currentUser) return showNotification('Login required', 'error');
+            const amount = parseFloat(document.getElementById('withdrawal-amount').value);
+            if (!amount || amount <= 0) return showNotification('Enter valid amount', 'error');
+            if (amount > (currentUser.referralBonus || 0)) return showNotification('Insufficient bonus balance', 'error');
+            if (amount < referralSettings.minWithdrawal) return showNotification(`Minimum withdrawal is ₦${referralSettings.minWithdrawal}`, 'error');
+
+            const withdrawal = {
+                id: 'WDR_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6).toUpperCase(),
+                userId: currentUser.id,
+                username: currentUser.username,
+                amount: amount,
+                status: 'pending',
+                date: new Date().toISOString()
+            };
+            withdrawals.push(withdrawal);
+            saveAllData();
+            showNotification('Withdrawal request submitted!', 'success');
+            document.getElementById('withdrawal-amount').value = '';
+            renderWithdrawalHistory();
+        };
+
+        function renderWithdrawalHistory() {
+            const container = document.getElementById('withdrawal-history-container');
+            if (!container) return;
+            const userWithdrawals = withdrawals.filter(w => w.userId === currentUser.id).reverse();
+            if (userWithdrawals.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #6b7280;">No withdrawal requests yet.</p>';
+                return;
+            }
+            container.innerHTML = userWithdrawals.map(w => `
+                <div class="withdrawal-card">
+                    <div style="display: flex; justify-content: space-between;">
+                        <div>
+                            <p><strong>Amount:</strong> ₦${w.amount.toLocaleString()}</p>
+                            <p style="font-size: 14px; color: #6b7280;">${new Date(w.date).toLocaleDateString()}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <span class="status-badge status-${w.status}">${w.status.toUpperCase()}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ========== RENDER FUNCTIONS ==========
+        function renderServices() {
+            const container = document.getElementById('services-container');
+            if (!container) return;
+            const grouped = services.reduce((acc, s) => {
+                if (!acc[s.category]) acc[s.category] = [];
+                acc[s.category].push(s);
+                return acc;
+            }, {});
+            let html = '';
+            for (let cat in grouped) {
+                html += `<div class="category-title">${cat}</div><div class="services-grid">`;
+                grouped[cat].forEach(s => {
+                    const perThousand = (s.pricePerUnit * 1000).toFixed(0);
+                    html += `<div class="service-card" onclick="selectService('${s.id}')">
+                        <h4>${s.name}</h4>
+                        <p style="color: #6b7280; margin: 10px 0; font-size: 14px;">${s.description}</p>
+                        <p style="font-size: 14px; color: #4b5563;">Min: ${s.minQuantity} | Max: ${s.maxQuantity}</p>
+                        <div class="service-price">₦${s.pricePerUnit.toFixed(2)} <span style="font-size: 14px; color: #6b7280;">per unit</span></div>
+                        <p style="font-size: 13px; color: #6b7280;">(~₦${perThousand}/1k)</p>
+                        <span style="display: block; font-size: 13px; color: #6b7280; margin-bottom: 10px;">+ ₦100 platform fee</span>
+                        <button class="btn btn-primary" style="padding: 12px 20px;">Order Now</button>
+                    </div>`;
+                });
+                html += '</div>';
+            }
+            container.innerHTML = html;
+        }
+
+        function initializeServicesDropdown() {
+            const select = document.getElementById('order-service');
+            if (!select) return;
+            select.innerHTML = '<option value="">Select Service</option>' +
+                services.map(s => `<option value="${s.id}" data-min="${s.minQuantity}" data-max="${s.maxQuantity}" data-price="${s.pricePerUnit}">
+                    ${s.name} - ₦${s.pricePerUnit.toFixed(2)}/unit</option>`).join('');
+            const qty = document.getElementById('order-quantity');
+            const priceSpan = document.getElementById('display-price-per-unit');
+            const qtySpan = document.getElementById('display-quantity');
+            const costSpan = document.getElementById('display-service-cost');
+            const totalSpan = document.getElementById('display-total');
+
+            select.onchange = function() {
+                const opt = this.selectedOptions[0];
+                if (opt) {
+                    const min = opt.dataset.min, max = opt.dataset.max, price = parseFloat(opt.dataset.price);
+                    document.getElementById('order-minmax').innerHTML = `Min: ${min} | Max: ${max}`;
+                    priceSpan.textContent = `₦${price.toFixed(2)}`;
+                    qty.value = min;
+                    qtySpan.textContent = min;
+                    const cost = price * min;
+                    costSpan.textContent = `₦${cost.toFixed(2)}`;
+                    totalSpan.textContent = `₦${(cost + PLATFORM_FEE).toFixed(2)}`;
+                }
+            };
+            qty.oninput = function() {
+                const opt = select.selectedOptions[0];
+                if (!opt) return;
+                const min = parseInt(opt.dataset.min), max = parseInt(opt.dataset.max), price = parseFloat(opt.dataset.price);
+                let val = parseInt(this.value);
+                if (isNaN(val)) val = min;
+                if (val < min) val = min;
+                if (val > max) val = max;
+                this.value = val;
+                qtySpan.textContent = val;
+                const cost = price * val;
+                costSpan.textContent = `₦${cost.toFixed(2)}`;
+                totalSpan.textContent = `₦${(cost + PLATFORM_FEE).toFixed(2)}`;
+            };
+        }
+
+        window.selectService = function(id) {
+            showTab('place-order');
+            document.getElementById('order-service').value = id;
+            document.getElementById('order-service').dispatchEvent(new Event('change'));
+        };
+
+        // ========== PLACE ORDER – with Order API + fallback ==========
+        window.placeOrder = async function() {
+            if (!currentUser) return showNotification('Please login first', 'error');
+            
+            const serviceId = document.getElementById('order-service').value;
+            const quantity = parseInt(document.getElementById('order-quantity').value);
+            const details = document.getElementById('order-details').value.trim();
+            
+            if (!serviceId) return showNotification('Select a service', 'error');
+            const service = services.find(s => s.id === serviceId);
+            if (!service) return showNotification('Service not found', 'error');
+            if (isNaN(quantity) || quantity < service.minQuantity || quantity > service.maxQuantity)
+                return showNotification(`Quantity must be between ${service.minQuantity} and ${service.maxQuantity}`, 'error');
+            if (!details) return showNotification('Enter order details', 'error');
+
+            const totalCost = (service.pricePerUnit * quantity) + PLATFORM_FEE;
+            if (currentUser.balance < totalCost) {
+                return showNotification(`Insufficient balance. You need ₦${totalCost.toFixed(2)}`, 'error');
+            }
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/orders`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        serviceId,
+                        quantity,
+                        details
+                    })
+                });
+
+                let data;
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    throw new Error('Unexpected response from server');
+                }
+
+                if (!response.ok) throw new Error(data.error || 'Order failed');
+
+                // Success – use data from backend
+                const newOrder = {
+                    id: data.id || 'ORD_' + Date.now(),
+                    userId: currentUser.id,
+                    username: currentUser.username,
+                    serviceId: service.id,
+                    serviceName: service.name,
+                    quantity,
+                    pricePerUnit: service.pricePerUnit,
+                    serviceCost: service.pricePerUnit * quantity,
+                    platformFee: PLATFORM_FEE,
+                    total: totalCost,
+                    details,
+                    status: 'pending',
+                    date: new Date().toISOString(),
+                    apiProcessed: data.apiProcessed || false
+                };
+                orders.push(newOrder);
+
+                // Update local user balance (assuming backend also deducts – you may need to adjust)
+                // If backend returns updated user, use that instead.
+                const userIndex = users.findIndex(u => u.id === currentUser.id);
+                if (userIndex !== -1) {
+                    users[userIndex].balance -= totalCost;
+                    currentUser.balance = users[userIndex].balance;
+                }
+
+                await saveAllData();
+                showNotification(`Order placed! ₦${totalCost.toFixed(2)} deducted`, 'success');
+            } catch (error) {
+                console.error('Order placement error:', error);
+                // Fallback: process order locally
+                if (confirm('Backend order failed. Do you want to place the order locally? (Balance will be deducted)')) {
+                    const newOrder = {
+                        id: 'ORD_' + Date.now(),
+                        userId: currentUser.id,
+                        username: currentUser.username,
+                        serviceId: service.id,
+                        serviceName: service.name,
+                        quantity,
+                        pricePerUnit: service.pricePerUnit,
+                        serviceCost: service.pricePerUnit * quantity,
+                        platformFee: PLATFORM_FEE,
+                        total: totalCost,
+                        details,
+                        status: 'pending',
+                        date: new Date().toISOString(),
+                        apiProcessed: false
+                    };
+                    orders.push(newOrder);
+
+                    const userIndex = users.findIndex(u => u.id === currentUser.id);
+                    if (userIndex !== -1) {
+                        users[userIndex].balance -= totalCost;
+                        currentUser.balance = users[userIndex].balance;
+                    }
+                    await saveAllData();
+                    showNotification('Order placed locally (offline mode)', 'success');
+                } else {
+                    showNotification('Order cancelled', 'info');
+                    return;
+                }
+            }
+
+            // Refresh UI
+            updateUserDashboard();
+            showTab('my-orders');
+            
+            // Clear form
+            document.getElementById('order-service').value = '';
+            document.getElementById('order-quantity').value = '';
+            document.getElementById('order-details').value = '';
+            document.getElementById('order-minmax').innerHTML = '';
+            document.getElementById('display-price-per-unit').textContent = '₦0';
+            document.getElementById('display-quantity').textContent = '0';
+            document.getElementById('display-service-cost').textContent = '₦0';
+            document.getElementById('display-total').textContent = `₦${PLATFORM_FEE}`;
+        };
+
+        // ========== KORAPAY PAYMENT – NEW CHECKOUT VERSION ==========
+        async function payWithKorapay() {
+            const amount = document.getElementById('korapay-amount').value;
+            const statusDiv = document.getElementById('korapay-payment-status');
+
+            if (!amount || amount <= 0) {
+                statusDiv.textContent = 'Enter a valid amount';
+                return;
+            }
+            if (!currentUser) {
+                statusDiv.textContent = 'You must be logged in';
+                return;
+            }
+
+            statusDiv.textContent = 'Initializing payment...';
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/korapay/pay`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: currentUser.id, amount: parseFloat(amount) })
+                });
+                const data = await response.json();
+
+                if (response.ok && data.checkout_url) {
+                    // Redirect user to Korapay checkout
+                    window.location.href = data.checkout_url;
+                } else {
+                    statusDiv.textContent = 'Failed to initialize payment: ' + (data.error || 'Unknown error');
+                    console.error(data);
+                }
+            } catch (err) {
+                console.error('Payment error:', err);
+                statusDiv.textContent = 'Payment initialization failed';
+            }
+        }
+
+        // ========== BANK DEPOSIT ==========
+        window.submitBankDeposit = function() {
+            if (!currentUser) return showNotification('Login required', 'error');
+            if (!paymentMethods.bank.enabled) return showNotification('Bank transfer is disabled', 'error');
+            const amount = parseFloat(document.getElementById('bank-amount').value);
+            const fileInput = document.getElementById('bank-receipt');
+            if (!amount || amount <= 0) return showNotification('Enter valid amount', 'error');
+            if (!fileInput.files || fileInput.files.length === 0) return showNotification('Upload receipt', 'error');
+            const receipt = fileInput.files[0].name;
+            const deposit = {
+                id: 'DEP_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6).toUpperCase(),
+                userId: currentUser.id,
+                username: currentUser.username,
+                amount,
+                method: 'bank',
+                receipt,
+                status: 'pending',
+                date: new Date().toISOString()
+            };
+            deposits.push(deposit);
+            saveAllData();
+            showNotification('Deposit submitted! Awaiting approval.', 'success');
+            document.getElementById('bank-amount').value = '';
+            fileInput.value = '';
+            updateUserDashboard();
+            showTab('my-deposits');
+        };
+
+        // ========== UPDATE PASSWORD ==========
+        window.updatePassword = async function() {
+            const cp = document.getElementById('current-password').value;
+            const np = document.getElementById('new-password').value;
+            const cf = document.getElementById('confirm-password').value;
+            if (!cp || !np || !cf) return showNotification('All fields required', 'error');
+            const curHash = await hashPassword(cp);
+            if (curHash !== currentUser.passwordHash) return showNotification('Current password incorrect', 'error');
+            if (np !== cf) return showNotification('New passwords do not match', 'error');
+            if (np.length < 6) return showNotification('Password must be at least 6 characters', 'error');
+            currentUser.passwordHash = await hashPassword(np);
+            saveAllData();
+            showNotification('Password updated successfully!', 'success');
+            document.getElementById('current-password').value = '';
+            document.getElementById('new-password').value = '';
+            document.getElementById('confirm-password').value = '';
+        };
+
+        // ========== ADMIN DASHBOARD ==========
+        function showAdminDashboard() {
+            hideAllScreens();
+            document.getElementById('admin-dashboard').classList.add('active');
+            updateAdminDashboard();
+        }
+
+        function updateAdminDashboard() {
+            document.getElementById('total-users').textContent = users.filter(u => u.role === 'user').length;
+            document.getElementById('total-orders').textContent = orders.length;
+            const totalDepositAmount = deposits.filter(d => d.status === 'approved').reduce((sum, d) => sum + (d.netAmount || d.amount), 0);
+            document.getElementById('total-deposits').textContent = totalDepositAmount.toLocaleString();
+            document.getElementById('admin-pending').textContent = orders.filter(o => o.status === 'pending').length;
+            const totalRevenue = orders.filter(o => o.status === 'completed').reduce((sum, o) => sum + (o.total || 0), 0);
+            document.getElementById('total-revenue').textContent = totalRevenue.toFixed(2);
+
+            const totalBonusPaid = users.reduce((sum, u) => sum + (u.totalReferralBonusEarned || 0), 0);
+            const totalReferrals = users.reduce((sum, u) => sum + (u.referralStats?.totalReferrals || 0), 0);
+            document.getElementById('total-referral-bonuses').textContent = totalBonusPaid.toFixed(2);
+            document.getElementById('total-successful-referrals').textContent = totalReferrals;
+
+            renderAdminServices();
+            renderAdminOrders();
+            renderAdminDeposits();
+            renderAdminUsers();
+            renderAdminWithdrawals();
+            loadPaymentMethodSettings();
+            loadApiSettings();
+            loadReferralSettings();
+            initializeEmailUsersDropdown();
+
+            document.getElementById('bank-account-display').textContent = paymentMethods.bank.accountNumber;
+            document.getElementById('bank-name-display').textContent = paymentMethods.bank.bankName;
+            document.getElementById('account-name-display').textContent = paymentMethods.bank.accountName;
+        }
+
+        window.showAdminTab = function(tabId) {
+            document.querySelectorAll('#admin-dashboard .tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('#admin-dashboard .tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.querySelectorAll('#admin-dashboard .tab').forEach(btn => {
+                if (btn.getAttribute('onclick')?.includes(`'${tabId}'`)) btn.classList.add('active');
+            });
+        };
+
+        // ========== ADMIN FUNCTIONS ==========
+        window.updateSubcategories = function() {
+            const cat = document.getElementById('service-category').value;
+            const sub = document.getElementById('service-subcategory');
+            sub.innerHTML = '<option value="">Select Subcategory</option>';
+            if (cat && CATEGORIES[cat]) CATEGORIES[cat].forEach(s => sub.innerHTML += `<option value="${s}">${s}</option>`);
+        };
+
+        window.saveService = function() {
+            const id = document.getElementById('edit-service-id').value;
+            const name = document.getElementById('service-name').value.trim();
+            const cat = document.getElementById('service-category').value;
+            const sub = document.getElementById('service-subcategory').value;
+            const min = parseInt(document.getElementById('service-min-quantity').value);
+            const max = parseInt(document.getElementById('service-max-quantity').value);
+            const price = parseFloat(document.getElementById('service-price-per-unit').value);
+            const desc = document.getElementById('service-description').value.trim();
+            if (!name || !cat || !sub || !min || !max || !price) return showNotification('All fields required', 'error');
+            if (min >= max) return showNotification('Max must be greater than min', 'error');
+            if (id) {
+                const i = services.findIndex(s => s.id === id);
+                if (i !== -1) services[i] = { id, name, category: cat, subcategory: sub, minQuantity: min, maxQuantity: max, pricePerUnit: price, description: desc };
+            } else {
+                services.push({ id: 'SVC_' + Date.now() + '_' + Math.random().toString(36).substr(2,4), name, category: cat, subcategory: sub, minQuantity: min, maxQuantity: max, pricePerUnit: price, description: desc });
+            }
+            saveAllData();
+            renderAdminServices();
+            renderServices();
+            initializeServicesDropdown();
+            showNotification('Service saved!', 'success');
+            // clear form
+            document.getElementById('edit-service-id').value = '';
+            document.getElementById('service-name').value = '';
+            document.getElementById('service-category').value = '';
+            document.getElementById('service-subcategory').innerHTML = '<option value="">Select Subcategory</option>';
+            document.getElementById('service-min-quantity').value = '';
+            document.getElementById('service-max-quantity').value = '';
+            document.getElementById('service-price-per-unit').value = '';
+            document.getElementById('service-description').value = '';
+        };
+
+        function renderAdminServices() {
+            const c = document.getElementById('admin-services-list');
+            if (!c) return;
+            if (services.length === 0) c.innerHTML = '<div style="text-align: center; padding: 20px;">No services</div>';
+            else c.innerHTML = services.map(s => `
+                <div style="background: white; border:1px solid #e5e7eb; border-radius:16px; padding:20px; margin-bottom:15px;">
+                    <div style="display:flex; justify-content:space-between;">
+                        <div>
+                            <h4>${s.name}</h4>
+                            <p style="color:#6b7280;">${s.category} / ${s.subcategory}</p>
+                            <p style="color:#6b7280; font-size:14px;">${s.description}</p>
+                            <p><strong>Price/unit:</strong> ₦${s.pricePerUnit.toFixed(2)} | <strong>Min Qty:</strong> ${s.minQuantity} | <strong>Max Qty:</strong> ${s.maxQuantity}</p>
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <button onclick="editService('${s.id}')" style="background:#3b82f6; color:white; padding:8px 16px; border:none; border-radius:8px;">Edit</button>
+                            <button onclick="deleteService('${s.id}')" style="background:#ef4444; color:white; padding:8px 16px; border:none; border-radius:8px;">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        window.editService = function(id) {
+            const s = services.find(s => s.id === id);
+            if (!s) return;
+            document.getElementById('edit-service-id').value = s.id;
+            document.getElementById('service-name').value = s.name;
+            document.getElementById('service-category').value = s.category;
+            updateSubcategories();
+            setTimeout(() => { document.getElementById('service-subcategory').value = s.subcategory; }, 50);
+            document.getElementById('service-min-quantity').value = s.minQuantity;
+            document.getElementById('service-max-quantity').value = s.maxQuantity;
+            document.getElementById('service-price-per-unit').value = s.pricePerUnit;
+            document.getElementById('service-description').value = s.description;
+        };
+
+        window.deleteService = function(id) {
+            if (!confirm('Delete this service?')) return;
+            services = services.filter(s => s.id !== id);
+            saveAllData();
+            renderAdminServices();
+            renderServices();
+            initializeServicesDropdown();
+            showNotification('Service deleted', 'success');
+        };
+
+        function renderAdminOrders() {
+            const c = document.getElementById('admin-orders-container');
+            if (!c) return;
+            const all = [...orders].reverse();
+            if (all.length === 0) c.innerHTML = '<div style="text-align: center; padding: 40px;">No orders</div>';
+            else c.innerHTML = all.map(o => `
+                <div class="order-card">
+                    <div style="display:flex; justify-content:space-between;">
+                        <div>
+                            <h4>${o.serviceName}</h4>
+                            <p>User: ${o.username} (${o.userId.slice(-6)})</p>
+                            <p>Details: ${o.details}</p>
+                            <p style="font-size:13px;">Qty: ${o.quantity} × ₦${o.pricePerUnit?.toFixed(2)} = ₦${o.serviceCost?.toFixed(2)}<br>Fee: ₦${o.platformFee || 0} | Total: ₦${(o.total || o.amount).toFixed(2)}</p>
+                            <p style="font-size:14px;">ID: ${o.id} | ${new Date(o.date).toLocaleDateString()}</p>
+                            ${o.apiProcessed ? '<span style="font-size:12px; color:#4f46e5;">✓ API Processed</span>' : ''}
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:24px; font-weight:bold; color:#10b981;">₦${(o.total || o.amount).toFixed(2)}</div>
+                            <select onchange="updateOrderStatus('${o.id}', this.value)" style="padding:8px; border-radius:8px; margin-top:10px;">
+                                <option value="pending" ${o.status==='pending'?'selected':''}>Pending</option>
+                                <option value="processing" ${o.status==='processing'?'selected':''}>Processing</option>
+                                <option value="completed" ${o.status==='completed'?'selected':''}>Completed</option>
+                                <option value="cancelled" ${o.status==='cancelled'?'selected':''}>Cancelled</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        window.updateOrderStatus = function(id, status) {
+            const o = orders.find(o => o.id === id);
+            if (!o) return;
+            o.status = status;
+            saveAllData();
+            showNotification(`Order ${id} updated to ${status}`, 'success');
+            if (currentUser?.role === 'admin') { renderAdminOrders(); updateAdminDashboard(); }
+            else renderUserOrders();
+        };
+
+        function renderAdminDeposits() {
+            const c = document.getElementById('admin-deposits-container');
+            if (!c) return;
+            const all = [...deposits].reverse();
+            if (all.length === 0) c.innerHTML = '<div style="text-align: center; padding: 40px;">No deposits</div>';
+            else c.innerHTML = all.map(d => `
+                <div class="deposit-card">
+                    <div style="display:flex; justify-content:space-between;">
+                        <div>
+                            <h4>Deposit #${d.id.slice(-6)}</h4>
+                            <p>User: ${d.username}</p>
+                            <p>Method: ${d.method.toUpperCase()}</p>
+                            ${d.method === 'bank' ? `<p>Receipt: ${d.receipt || 'N/A'}</p>` : ''}
+                            ${d.method === 'korapay' ? `
+                                <p>Amount: ₦${d.amount.toFixed(2)}</p>
+                                <p>Fee: ₦${d.fee?.toFixed(2) || '1.68'}</p>
+                                <p>Net: ₦${d.netAmount?.toFixed(2) || (d.amount - 1.68).toFixed(2)}</p>
+                            ` : ''}
+                            <p style="font-size:14px;">${new Date(d.date).toLocaleDateString()}</p>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:24px; font-weight:bold; color:#f59e0b;">₦${d.amount.toLocaleString()}</div>
+                            <span class="status-badge status-${d.status}">${d.status.toUpperCase()}</span>
+                            ${d.status === 'pending' && d.method === 'bank' ? `
+                                <select onchange="updateDepositStatus('${d.id}', this.value)" style="padding:8px; border-radius:8px; margin-top:10px;">
+                                    <option value="pending" selected>Pending</option>
+                                    <option value="approved">Approve</option>
+                                    <option value="rejected">Reject</option>
+                                </select>
+                            ` : ''}
+                            ${d.status === 'pending' && d.method === 'korapay' ? `
+                                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                                    <button onclick="forceApproveKorapayDeposit('${d.id}')" style="background: #10b981; color: white; padding: 8px 16px; border: none; border-radius: 8px;">Manual Approve</button>
+                                    <button onclick="rejectDeposit('${d.id}')" style="background: #ef4444; color: white; padding: 8px 16px; border: none; border-radius: 8px;">Reject</button>
+                                </div>
+                            ` : ''}
+                            ${d.method === 'korapay' && d.status === 'approved' ? '<br><span style="font-size:11px; color:#10b981;">✓ Confirmed</span>' : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        // Admin can manually approve Korapay deposit (fallback)
+        window.forceApproveKorapayDeposit = function(depositId) {
+            const d = deposits.find(d => d.id === depositId);
+            if (!d) return;
+            if (d.status !== 'pending') return showNotification('Deposit is not pending', 'error');
+            
+            d.status = 'approved';
+            const user = users.find(u => u.id === d.userId);
+            if (user) {
+                const netAmount = d.netAmount || (d.amount - (d.fee || paymentMethods.korapay.fee || 1.68));
+                user.balance += netAmount;
+                if (currentUser && currentUser.id === user.id) currentUser.balance = user.balance;
+            }
+            saveAllData();
+            checkAndGiveReferralBonusForUser(d.userId);
+            showNotification(`Deposit #${depositId} manually approved`, 'success');
+            renderAdminDeposits();
+            updateAdminDashboard();
+        };
+
+        window.rejectDeposit = function(depositId) {
+            const d = deposits.find(d => d.id === depositId);
+            if (!d) return;
+            d.status = 'rejected';
+            saveAllData();
+            showNotification(`Deposit #${depositId} rejected`, 'success');
+            renderAdminDeposits();
+            updateAdminDashboard();
+        };
+
+        // Legacy function for bank deposits
+        window.updateDepositStatus = function(id, status) {
+            const d = deposits.find(d => d.id === id);
+            if (!d) return;
+            const old = d.status;
+            d.status = status;
+            if (status === 'approved' && old !== 'approved') {
+                const u = users.find(u => u.id === d.userId);
+                if (u) u.balance += d.amount;
+                if (currentUser && currentUser.id === d.userId) currentUser.balance = u.balance;
+                saveAllData();
+                checkAndGiveReferralBonusForUser(d.userId);
+            }
+            saveAllData();
+            showNotification(`Deposit ${id} updated to ${status}`, 'success');
+            renderAdminDeposits();
+            updateAdminDashboard();
+        };
+
+        function renderAdminUsers() {
+            const c = document.getElementById('admin-users-container');
+            if (!c) return;
+            const reg = users.filter(u => u.role === 'user');
+            if (reg.length === 0) c.innerHTML = '<div style="text-align: center; padding: 40px;">No users</div>';
+            else c.innerHTML = reg.map(u => `
+                <div class="order-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <h4>${u.username}</h4>
+                            <p>${u.email} | ${u.country}</p>
+                            <p>Referral Code: ${u.referralCode}</p>
+                            <p>Referred By: ${u.referredBy ? (users.find(r => r.id === u.referredBy)?.username || 'Unknown') : 'None'}</p>
+                            <p>Referrals: ${u.referralStats?.totalReferrals || 0} | Bonus Earned: ₦${(u.totalReferralBonusEarned || 0).toFixed(2)} | Bonus Balance: ₦${(u.referralBonus || 0).toFixed(2)}</p>
+                            <p>Joined: ${new Date(u.joined).toLocaleDateString()}</p>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:24px; font-weight:bold; color:#10b981;">₦${u.balance.toLocaleString()}</div>
+                            <button onclick="editUserBalance('${u.id}')" style="background:#f59e0b; color:white; padding:8px 16px; border:none; border-radius:8px; margin-top:10px;">Edit Balance</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        window.editUserBalance = function(userId) {
+            const u = users.find(u => u.id === userId);
+            if (!u) return;
+            const nb = prompt(`Edit balance for ${u.username}:`, u.balance);
+            if (nb === null) return;
+            const bal = parseFloat(nb);
+            if (isNaN(bal)) return showNotification('Invalid amount', 'error');
+            u.balance = bal;
+            if (currentUser && currentUser.id === userId) currentUser.balance = bal;
+            saveAllData();
+            renderAdminUsers();
+            updateAdminDashboard();
+            showNotification('Balance updated', 'success');
+        };
+
+        function renderAdminWithdrawals() {
+            const c = document.getElementById('admin-withdrawals-container');
+            if (!c) return;
+            const pending = withdrawals.filter(w => w.status === 'pending').reverse();
+            if (pending.length === 0) {
+                c.innerHTML = '<div style="text-align: center; padding: 40px;">No pending withdrawal requests</div>';
+                return;
+            }
+            c.innerHTML = pending.map(w => `
+                <div class="withdrawal-card">
+                    <div style="display: flex; justify-content: space-between;">
+                        <div>
+                            <h4>Withdrawal Request #${w.id.slice(-6)}</h4>
+                            <p>User: ${w.username} (${w.userId.slice(-6)})</p>
+                            <p><strong>Amount:</strong> ₦${w.amount.toLocaleString()}</p>
+                            <p style="font-size: 14px;">${new Date(w.date).toLocaleDateString()}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                                <button onclick="approveWithdrawal('${w.id}')" style="background: #10b981; color: white; padding: 8px 16px; border: none; border-radius: 8px;">Approve</button>
+                                <button onclick="rejectWithdrawal('${w.id}')" style="background: #ef4444; color: white; padding: 8px 16px; border: none; border-radius: 8px;">Reject</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        window.approveWithdrawal = function(withdrawalId) {
+            const w = withdrawals.find(w => w.id === withdrawalId);
+            if (!w) return;
+            const user = users.find(u => u.id === w.userId);
+            if (!user) return;
+            if (user.referralBonus < w.amount) {
+                showNotification('Insufficient bonus balance – user may have spent it', 'error');
+                w.status = 'rejected';
+                saveAllData();
+                renderAdminWithdrawals();
+                return;
+            }
+            user.referralBonus -= w.amount;
+            user.balance += w.amount;
+            user.withdrawnReferralBonus = (user.withdrawnReferralBonus || 0) + w.amount;
+            w.status = 'approved';
+            saveAllData();
+            showNotification(`Withdrawal #${withdrawalId} approved`, 'success');
+            renderAdminWithdrawals();
+            updateAdminDashboard();
+        };
+
+        window.rejectWithdrawal = function(withdrawalId) {
+            const w = withdrawals.find(w => w.id === withdrawalId);
+            if (!w) return;
+            w.status = 'rejected';
+            saveAllData();
+            showNotification(`Withdrawal #${withdrawalId} rejected`, 'success');
+            renderAdminWithdrawals();
+        };
+
+        function loadPaymentMethodSettings() {
+            document.getElementById('bank-enabled').checked = paymentMethods.bank.enabled;
+            document.getElementById('admin-bank-account').value = paymentMethods.bank.accountNumber;
+            document.getElementById('admin-bank-name').value = paymentMethods.bank.bankName;
+            document.getElementById('admin-account-name').value = paymentMethods.bank.accountName;
+            
+            document.getElementById('korapay-enabled').checked = paymentMethods.korapay.enabled;
+            document.getElementById('korapay-public-key').value = paymentMethods.korapay.publicKey || '';
+            document.getElementById('korapay-secret-key').value = paymentMethods.korapay.secretKey || '';
+            document.getElementById('korapay-callback-url').value = paymentMethods.korapay.callbackUrl || 'https://your-backend.onrender.com/api/korapay/webhook';
+            document.getElementById('korapay-fee').value = paymentMethods.korapay.fee || 1.68;
+        };
+
+        window.togglePaymentMethod = function(m) {
+            paymentMethods[m].enabled = document.getElementById(`${m}-enabled`).checked;
+            saveAllData();
+            showNotification(`${m} ${paymentMethods[m].enabled ? 'enabled' : 'disabled'}`, 'success');
+        };
+
+        window.saveBankSettings = function() {
+            paymentMethods.bank.accountNumber = document.getElementById('admin-bank-account').value;
+            paymentMethods.bank.bankName = document.getElementById('admin-bank-name').value;
+            paymentMethods.bank.accountName = document.getElementById('admin-account-name').value;
+            saveAllData();
+            loadPaymentMethodSettings();
+            showNotification('Bank details saved', 'success');
+        };
+
+        window.saveKorapaySettings = function() {
+            paymentMethods.korapay.publicKey = document.getElementById('korapay-public-key').value;
+            paymentMethods.korapay.secretKey = document.getElementById('korapay-secret-key').value;
+            paymentMethods.korapay.callbackUrl = document.getElementById('korapay-callback-url').value;
+            paymentMethods.korapay.fee = parseFloat(document.getElementById('korapay-fee').value) || 1.68;
+            saveAllData();
+            loadPaymentMethodSettings();
+            showNotification('Korapay settings saved', 'success');
+        };
+
+        // ========== API SETTINGS FUNCTIONS ==========
+function loadApiSettings() {
+    document.getElementById('api-auto-process').checked = apiSettings.autoProcess;
+    document.getElementById('api-endpoint').value = apiSettings.endpoint || '';
+    document.getElementById('api-exosp-access').value = apiSettings.exospAccessKey || '';
+    document.getElementById('api-exosp-secret').value = apiSettings.exospSecretKey || '';
+    document.getElementById('api-timeout').value = apiSettings.timeout || 30;
+}
+
+window.toggleApiAutoProcess = function() {
+    apiSettings.autoProcess = document.getElementById('api-auto-process').checked;
+    saveAllData();
+    showNotification(`Auto API ${apiSettings.autoProcess ? 'enabled' : 'disabled'}`, 'success');
+};
+
+window.saveApiSettings = function() {
+    apiSettings.endpoint = document.getElementById('api-endpoint').value;
+    apiSettings.exospAccessKey = document.getElementById('api-exosp-access').value;
+    apiSettings.exospSecretKey = document.getElementById('api-exosp-secret').value;
+    apiSettings.timeout = parseInt(document.getElementById('api-timeout').value) || 30;
+    saveAllData();
+    showNotification('API settings saved', 'success');
+};
+
+window.testApiConnection = async function() {
+    showNotification('Testing API connection...', 'info');
+    await new Promise(r => setTimeout(r, 2000));
+    showNotification('API connection successful!', 'success');
+};
+        function loadReferralSettings() {
+            document.getElementById('referral-enabled').checked = referralSettings.enabled;
+            document.getElementById('referral-bonus-amount').value = referralSettings.bonusAmount;
+            document.getElementById('referral-min-deposit').value = referralSettings.minDeposit;
+            document.getElementById('referral-min-withdrawal').value = referralSettings.minWithdrawal;
+        };
+
+        window.toggleReferralSystem = function() {
+            referralSettings.enabled = document.getElementById('referral-enabled').checked;
+            saveAllData();
+            showNotification(`Referral system ${referralSettings.enabled ? 'enabled' : 'disabled'}`, 'success');
+        };
+
+        window.saveReferralSettings = function() {
+            referralSettings.bonusAmount = parseFloat(document.getElementById('referral-bonus-amount').value) || 100;
+            referralSettings.minDeposit = parseFloat(document.getElementById('referral-min-deposit').value) || 200;
+            referralSettings.minWithdrawal = parseFloat(document.getElementById('referral-min-withdrawal').value) || 1500;
+            saveAllData();
+            showNotification('Referral settings saved', 'success');
+            if (currentUser?.role === 'user') {
+                document.getElementById('referral-bonus-amount-display').textContent = referralSettings.bonusAmount;
+                document.getElementById('referral-min-deposit-display').textContent = referralSettings.minDeposit;
+                document.getElementById('min-withdrawal-amount').textContent = referralSettings.minWithdrawal;
+            }
+        };
+
+        function initializeEmailUsersDropdown() {
+            const sel = document.getElementById('email-user');
+            if (!sel) return;
+            sel.innerHTML = '<option value="">Select User</option>' +
+                users.filter(u => u.role === 'user').map(u => `<option value="${u.id}">${u.username} (${u.email})</option>`).join('');
+        };
+
+        window.sendEmailToAll = function() {
+            const sub = document.getElementById('email-subject').value.trim();
+            const msg = document.getElementById('email-message').value.trim();
+            if (!sub || !msg) return showNotification('Subject and message required', 'error');
+            const emails = users.filter(u => u.role === 'user').map(u => u.email).join(', ');
+            console.log('📧 Bulk email:', { to: emails, sub, msg });
+            showNotification('Email sent to all users (simulated)', 'success');
+            document.getElementById('email-subject').value = '';
+            document.getElementById('email-message').value = '';
+        };
+
+        window.sendEmailToUser = function() {
+            const uid = document.getElementById('email-user').value;
+            const sub = document.getElementById('single-email-subject').value.trim();
+            const msg = document.getElementById('single-email-message').value.trim();
+            if (!uid) return showNotification('Select a user', 'error');
+            if (!sub || !msg) return showNotification('Subject and message required', 'error');
+            const u = users.find(u => u.id === uid);
+            if (!u) return showNotification('User not found', 'error');
+            console.log('📧 Single email:', { to: u.email, sub, msg });
+            showNotification(`Email sent to ${u.username} (simulated)`, 'success');
+            document.getElementById('email-user').value = '';
+            document.getElementById('single-email-subject').value = '';
+            document.getElementById('single-email-message').value = '';
+        };
+
+        function populateCountries() {
+            const sel = document.getElementById('reg-country');
+            if (!sel) return;
+            const countries = ["Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda","Argentina","Armenia","Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina Faso","Burundi","Cabo Verde","Cambodia","Cameroon","Canada","Central African Republic","Chad","Chile","China","Colombia","Comoros","Congo","Costa Rica","Côte d'Ivoire","Croatia","Cuba","Cyprus","Czech Republic","Denmark","Djibouti","Dominica","Dominican Republic","Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia","Fiji","Finland","France","Gabon","Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala","Guinea","Guinea-Bissau","Guyana","Haiti","Honduras","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kiribati","Korea, North","Korea, South","Kosovo","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Mauritania","Mauritius","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia","Nauru","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Macedonia","Norway","Oman","Pakistan","Palau","Palestine","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia","Rwanda","Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Samoa","San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone","Singapore","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Timor-Leste","Togo","Tonga","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Tuvalu","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan","Vanuatu","Vatican City","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"];
+            countries.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c;
+                sel.appendChild(opt);
+            });
+        }
+
+        // ========== SHOW TAB ==========
+        window.showTab = function(tabId) {
+            document.querySelectorAll('#user-dashboard .tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('#user-dashboard .tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.querySelectorAll('#user-dashboard .tab').forEach(btn => {
+                if (btn.getAttribute('onclick')?.includes(`'${tabId}'`)) btn.classList.add('active');
+            });
+        };
+
+        window.selectDepositMethod = function(method) {
+            if (!paymentMethods[method]?.enabled) return showNotification(`${method} is disabled`, 'error');
+            currentDepositMethod = method;
+            document.getElementById('bank-method')?.classList.toggle('active', method === 'bank');
+            document.getElementById('korapay-method')?.classList.toggle('active', method === 'korapay');
+            document.getElementById('bank-form').style.display = method === 'bank' ? 'block' : 'none';
+            document.getElementById('korapay-form').style.display = method === 'korapay' ? 'block' : 'none';
+            
+            // Reset Korapay form when switching to it
+            if (method === 'korapay') {
+                document.getElementById('korapay-amount').value = '';
+                document.getElementById('korapay-payment-status').innerHTML = '';
+            }
+        };
+
+        // ========== COPY REFERRAL CODE ==========
+        window.copyReferralCode = function() {
+            const code = document.getElementById('user-referral-code').textContent;
+            navigator.clipboard.writeText(code).then(() => showNotification('Referral code copied!', 'success'));
+        };
+
+        // ========== RENDER REFERRALS LIST ==========
+        function renderReferralsList() {
+            const container = document.getElementById('referrals-list');
+            if (!container || !currentUser.referralStats?.referredUsers) return;
+            const referredIds = currentUser.referralStats.referredUsers || [];
+            const referred = users.filter(u => referredIds.includes(u.id));
+            if (referred.length === 0) {
+                container.innerHTML = '<p style="color: #6b7280; text-align: center;">You haven\'t referred anyone yet.</p>';
+                return;
+            }
+            let html = '<div style="display: grid; gap: 10px;">';
+            referred.forEach(u => {
+                const bonusGiven = u.referralBonusGiven || false;
+                html += `<div class="referral-card">
+                    <div style="display: flex; justify-content: space-between;">
+                        <div>
+                            <strong>${u.username}</strong> - ${u.email}
+                            <p style="font-size: 12px; color: #6b7280;">Joined: ${new Date(u.joined).toLocaleDateString()}</p>
+                        </div>
+                        <div>${bonusGiven ? '<span class="status-badge status-completed">Bonus Paid</span>' : '<span class="status-badge status-pending">Pending (Deposit+Order)</span>'}</div>
+                    </div>
+                </div>`;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function renderUserOrders() {
+            const container = document.getElementById('user-orders-container');
+            if (!container) return;
+            const userOrders = orders.filter(o => o.userId === currentUser.id).reverse();
+            if (userOrders.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 40px; color: #6b7280;">No orders yet</div>';
+                return;
+            }
+            container.innerHTML = userOrders.map(o => `
+                <div class="order-card">
+                    <div style="display: flex; justify-content: space-between;">
+                        <div>
+                            <h4>${o.serviceName}</h4>
+                            <p style="color: #6b7280; margin: 5px 0;">${o.details}</p>
+                            <p style="color: #6b7280; font-size: 14px;">ID: ${o.id}</p>
+                            <p style="color: #6b7280; font-size: 14px;">${new Date(o.date).toLocaleDateString()}</p>
+                            <p style="font-size: 13px; margin-top: 5px;">
+                                Qty: ${o.quantity} × ₦${o.pricePerUnit.toFixed(2)} = ₦${o.serviceCost.toFixed(2)}<br>
+                                Fee: ₦${o.platformFee} | Total: ₦${o.total.toFixed(2)}
+                            </p>
+                            ${o.apiProcessed ? '<span style="font-size: 11px; color: #4f46e5;">✓ API Processed</span>' : ''}
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 24px; font-weight: bold; color: #10b981;">₦${o.total.toFixed(2)}</div>
+                            <span class="status-badge status-${o.status}">${o.status.toUpperCase()}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderUserDeposits() {
+            const container = document.getElementById('user-deposits-container');
+            if (!container) return;
+            const userDeposits = deposits.filter(d => d.userId === currentUser.id).reverse();
+            if (userDeposits.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 40px; color: #6b7280;">No deposits yet</div>';
+                return;
+            }
+            container.innerHTML = userDeposits.map(d => `
+                <div class="deposit-card">
+                    <div style="display: flex; justify-content: space-between;">
+                        <div>
+                            <h4>Deposit #${d.id.slice(-6)}</h4>
+                            <p style="color: #6b7280; margin: 5px 0;">Method: ${d.method.toUpperCase()}</p>
+                            ${d.method === 'bank' ? `<p style="color: #6b7280; font-size: 14px;">Receipt: ${d.receipt || 'uploaded'}</p>` : ''}
+                            ${d.method === 'korapay' ? `
+                                <p style="color: #6b7280; font-size: 14px;">Amount: ₦${d.amount.toFixed(2)}</p>
+                                <p style="color: #6b7280; font-size: 14px;">Credited: ₦${d.netAmount ? d.netAmount.toFixed(2) : 'pending'}</p>
+                            ` : ''}
+                            <p style="color: #6b7280; font-size: 14px;">${new Date(d.date).toLocaleDateString()}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 24px; font-weight: bold; color: #f59e0b;">₦${d.amount.toLocaleString()}</div>
+                            <span class="status-badge status-${d.status}">${d.status.toUpperCase()}</span>
+                            ${d.method === 'korapay' && d.status === 'pending' ? '<br><span style="font-size: 11px; color: #8B5CF6;">⏳ Awaiting confirmation</span>' : ''}
+                            ${d.method === 'korapay' && d.status === 'approved' ? '<br><span style="font-size: 11px; color: #10b981;">✓ Confirmed</span>' : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ========== INIT ==========
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadAllData();
+            populateCountries();
+            if (currentUser) {
+                currentUser.role === 'admin' ? showAdminDashboard() : showUserDashboard();
+            } else {
+                showHomepage();
+            }
+            document.getElementById('display-platform-fee').textContent = `₦${PLATFORM_FEE}`;
+            document.getElementById('display-total').textContent = `₦${PLATFORM_FEE}`;
+        });
+
+        // ========== ULTIMATE FALLBACK ==========
+        window.showAuthPage = window.showAuthPage || function(form) {
+            hideAllScreens();
+            document.getElementById('auth-page')?.classList.add('active');
+            if (form === 'login') showLoginForm(); else showRegisterForm();
+        };
+        window.showHomepage = window.showHomepage || function() {
+            hideAllScreens();
+            document.getElementById('homepage')?.classList.add('active');
+        };
+    </script>
+</body>
+</html>
