@@ -8,9 +8,9 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ========== CORS – Allow all origins (for development) ==========
+// ========== CORS ==========
 app.use(cors({ origin: true, credentials: true }));
-app.options('*', cors({ origin: true, credentials: true })); // preflight
+app.options('*', cors({ origin: true, credentials: true }));
 
 app.use(express.json());
 
@@ -59,7 +59,7 @@ app.post('/api/orders', async (req, res) => {
       return res.status(404).json({ error: 'User or service not found' });
     }
 
-    const PLATFORM_FEE = 0; // No platform fee
+    const PLATFORM_FEE = 0;
     const totalCost = (service.pricePerUnit * quantity) + PLATFORM_FEE;
     
     if (user.balance < totalCost) {
@@ -89,19 +89,28 @@ app.post('/api/orders', async (req, res) => {
     await orderRef.set(order);
     await updateUserBalance(userId, user.balance - totalCost);
     
-    // Auto-process if enabled – disabled by default now to avoid 404 spam
+    // Auto-process if enabled – with Exosupplier two‑key authentication
     const apiSettingsSnapshot = await db.ref('apiSettings').once('value');
     const apiSettings = apiSettingsSnapshot.val() || {};
     
     if (apiSettings.autoProcess && apiSettings.endpoint) {
       try {
+        const headers = {};
+        // Exosupplier uses two headers: x-exosp-access and x-exosp-secret [citation:1]
+        if (apiSettings.exospAccessKey) {
+          headers['x-exosp-access'] = apiSettings.exospAccessKey;
+        }
+        if (apiSettings.exospSecretKey) {
+          headers['x-exosp-secret'] = apiSettings.exospSecretKey;
+        }
+        
         const apiResponse = await axios.post(apiSettings.endpoint, {
           service: service.name,
           quantity,
           details,
           reference: orderId
         }, {
-          headers: { 'Authorization': `Bearer ${apiSettings.apiKey}` },
+          headers,
           timeout: (apiSettings.timeout || 30) * 1000
         });
         
@@ -113,8 +122,7 @@ app.post('/api/orders', async (req, res) => {
         
         return res.json({ success: true, id: orderId, apiProcessed: true });
       } catch (apiError) {
-        console.error('API processing failed:', apiError.message, apiError.response?.data);
-        // Order is still created locally
+        console.error('API processing failed:', apiError.message, apiError.response?.data || '');
         return res.json({ success: true, id: orderId, apiProcessed: false });
       }
     }
@@ -127,7 +135,7 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
-// ========== KORAPAY STANDARD CHECKOUT – WITH SHORT REFERENCE ==========
+// ========== KORAPAY STANDARD CHECKOUT ==========
 app.post('/api/korapay/pay', async (req, res) => {
   try {
     const { userId, amount } = req.body;
@@ -136,26 +144,24 @@ app.post('/api/korapay/pay', async (req, res) => {
     const user = await getUser(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    // Get Korapay settings from Firebase
     const paymentMethodsSnapshot = await db.ref('paymentMethods/korapay').once('value');
     const korapaySettings = paymentMethodsSnapshot.val() || {};
     if (!korapaySettings.enabled || !korapaySettings.secretKey) {
       return res.status(400).json({ error: 'Korapay not configured' });
     }
 
-    // Generate a short reference (max 50 chars)
-    const shortUserId = userId.slice(-8); // last 8 chars of userId
-    const timestamp = Date.now().toString().slice(-8); // last 8 digits of timestamp
-    const random = Math.random().toString(36).substring(2, 6); // 4 chars
-    const reference = `DB${shortUserId}${timestamp}${random}`; // total ~ 8+8+4 = 20 chars, safe
+    // Short reference (< 50 chars)
+    const shortUserId = userId.slice(-8);
+    const timestamp = Date.now().toString().slice(-8);
+    const random = Math.random().toString(36).substring(2, 6);
+    const reference = `DB${shortUserId}${timestamp}${random}`;
 
-    // Initialize checkout (standard payment)
     const response = await axios.post(
       'https://api.korapay.com/merchant/api/v1/charges/initialize',
       {
         amount,
         currency: 'NGN',
-        redirect_url: `${req.protocol}://${req.get('host')}/payment-success`, // optional
+        redirect_url: `${req.protocol}://${req.get('host')}/payment-success`,
         reference,
         customer: {
           name: user.username,
@@ -171,7 +177,6 @@ app.post('/api/korapay/pay', async (req, res) => {
       }
     );
 
-    // Save deposit record (pending)
     const depositRef = db.ref('deposits').push();
     const depositId = depositRef.key;
     const deposit = {
@@ -196,10 +201,7 @@ app.post('/api/korapay/pay', async (req, res) => {
 
   } catch (error) {
     console.error('Korapay initialization error:', error.response?.data || error.message);
-    res.status(500).json({ 
-      error: 'Failed to initialize payment', 
-      details: error.response?.data || error.message 
-    });
+    res.status(500).json({ error: 'Failed to initialize payment', details: error.response?.data || error.message });
   }
 });
 
@@ -251,7 +253,6 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// ========== START SERVER ==========
 app.listen(PORT, () => {
   console.log(`Backend server running on port ${PORT}`);
 });
