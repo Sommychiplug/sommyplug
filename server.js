@@ -114,7 +114,8 @@ app.post('/api/orders', async (req, res) => {
         
         return res.json({ success: true, id: orderId, apiProcessed: true });
       } catch (apiError) {
-        console.error('API processing failed:', apiError.message);
+        // 🔍 Log error to identify why it's failing (likely 404 in the external endpoint)
+        console.error('API processing failed:', apiError.message, apiError.response?.data);
         return res.json({ success: true, id: orderId, apiProcessed: false });
       }
     }
@@ -127,7 +128,7 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
-// ========== KORAPAY INTEGRATION – FIXED 404 ERROR ==========
+// ========== KORAPAY INTEGRATION – FIXED 404 & 400 ERRORS ==========
 app.post('/api/korapay/generate', async (req, res) => {
   try {
     const { userId, amount } = req.body;
@@ -164,10 +165,11 @@ app.post('/api/korapay/generate', async (req, res) => {
         name: user.username,
         email: user.email
       },
-      permanent: false,
+      // ✅ FIXED: Set permanent to true as required by Korapay
+      permanent: true, 
       bank_code: "035", // ✅ Standard Wema Bank code
       amount: amount,
-      currency: "NGN", // Ensure currency is specified
+      currency: "NGN",
       metadata: {
         userId: userId,
         source: 'DebbyBooster'
