@@ -127,7 +127,7 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
-// ========== KORAPAY INTEGRATION – IMPROVED LOGGING ==========
+// ========== KORAPAY INTEGRATION – FIXED 404 ERROR ==========
 app.post('/api/korapay/generate', async (req, res) => {
   try {
     const { userId, amount } = req.body;
@@ -153,8 +153,11 @@ app.post('/api/korapay/generate', async (req, res) => {
     // Generate unique reference
     const reference = `DB_${userId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     
+    // ✅ FIXED: Corrected API endpoint URL
+    const KORAPAY_ENDPOINT = 'https://api.korapay.com/merchant/api/v1/virtual-bank-account';
+    
     // Call Korapay API to create virtual account
-    const response = await axios.post('https://api.korapay.com/v1/merchant/api/v1/virtual-bank-account', {
+    const response = await axios.post(KORAPAY_ENDPOINT, {
       reference: reference,
       account_name: user.username.replace(/[^a-zA-Z0-9]/g, ' ').substring(0, 50),
       customer: {
@@ -162,8 +165,9 @@ app.post('/api/korapay/generate', async (req, res) => {
         email: user.email
       },
       permanent: false,
-      bank_code: "999121", // Wema Bank
+      bank_code: "035", // ✅ Standard Wema Bank code
       amount: amount,
+      currency: "NGN", // Ensure currency is specified
       metadata: {
         userId: userId,
         source: 'DebbyBooster'
@@ -178,7 +182,8 @@ app.post('/api/korapay/generate', async (req, res) => {
     // 🔍 Log the full Korapay response for debugging
     console.log('Korapay API response:', response.data);
     
-    if (response.data.status === 'success' && response.data.data) {
+    // ✅ FIXED: Updated success check for status (API returns boolean true or "true")
+    if ((response.data.status === true || response.data.status === 'success') && response.data.data) {
       const accountData = response.data.data;
       
       const depositRef = db.ref('deposits').push();
@@ -189,7 +194,6 @@ app.post('/api/korapay/generate', async (req, res) => {
         userId,
         username: user.username,
         amount: amount,
-        // 🔧 Korapay fee now comes from settings (set to 0 in admin to remove)
         netAmount: amount - (korapaySettings.fee || 0),
         fee: korapaySettings.fee || 0,
         method: 'korapay',
@@ -214,19 +218,16 @@ app.post('/api/korapay/generate', async (req, res) => {
         expiryTime: deposit.expiryTime
       });
     } else {
-      // Log the unexpected response for debugging
       console.error('Korapay returned non-success status or missing data:', response.data);
       throw new Error('Failed to create virtual account: ' + JSON.stringify(response.data));
     }
     
   } catch (error) {
-    // 🔥 Enhanced error logging – now includes full error details
     console.error('🔥 Korapay generation error details:', {
       message: error.message,
       responseData: error.response?.data,
       status: error.response?.status,
-      headers: error.response?.headers,
-      config: error.config // optional, may contain sensitive info
+      headers: error.response?.headers
     });
     res.status(500).json({ 
       error: 'Failed to generate payment account',
