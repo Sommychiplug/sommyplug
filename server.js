@@ -213,9 +213,9 @@ app.post('/api/korapay/generate', async (req, res) => {
     }
     
   } catch (error) {
-    console.error('Korapay generation error:', error.response?.data || error.message);
+    console.error('Korapay generation error details:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to generate payment account' });
-  }
+}
 });
 
 // ========== KORAPAY WEBHOOK ==========
