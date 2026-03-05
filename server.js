@@ -337,7 +337,7 @@ cron.schedule('*/5 * * * *', async () => {
   }
 
 });
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend server running on port ${PORT}`);
 });
 app.get('/api/exo/import-services', async (req, res) => {
