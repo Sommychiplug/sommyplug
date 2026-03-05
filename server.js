@@ -161,8 +161,7 @@ app.post('/api/korapay/pay', async (req, res) => {
       {
         amount,
         currency: 'NGN',
-        redirect_url: `${req.protocol}://${req.get('host')}/payment-success`,
-        reference,
+        redirect_url: 'https://fastplug.netlify.app/deposit?success=true', 
         customer: {
           name: user.username,
           email: user.email
