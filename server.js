@@ -7,7 +7,7 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-
+const cron = require('node-cron');
 // ========== CORS ==========
 app.use(cors({ origin: true, credentials: true }));
 app.options('*', cors({ origin: true, credentials: true }));
@@ -94,31 +94,23 @@ app.post('/api/orders', async (req, res) => {
     const apiSettings = apiSettingsSnapshot.val() || {};
     
     if (apiSettings.autoProcess && apiSettings.endpoint) {
-      try {
-        const headers = {};
-        // Exosupplier uses two headers: x-exosp-access and x-exosp-secret [citation:1]
-        if (apiSettings.exospAccessKey) {
-          headers['x-exosp-access'] = apiSettings.exospAccessKey;
-        }
-        if (apiSettings.exospSecretKey) {
-          headers['x-exosp-secret'] = apiSettings.exospSecretKey;
-        }
-        
+      try { 
         const apiResponse = await axios.post(apiSettings.endpoint, {
-          service: service.name,
-          quantity,
-          details,
-          reference: orderId
-        }, {
-          headers,
-          timeout: (apiSettings.timeout || 30) * 1000
-        });
-        
-        await db.ref(`orders/${orderId}`).update({
-          apiProcessed: true,
-          apiResponse: apiResponse.data,
-          status: 'processing'
-        });
+  key: apiSettings.apiKey,
+  action: "add",
+  service: service.apiServiceId,
+  link: details,
+  quantity: quantity
+}, {
+  timeout: (apiSettings.timeout || 30) * 1000
+});
+
+await db.ref(`orders/${orderId}`).update({
+  apiProcessed: true,
+  providerOrderId: apiResponse.data.order,
+  apiResponse: apiResponse.data,
+  status: "processing"
+});
         
         return res.json({ success: true, id: orderId, apiProcessed: true });
       } catch (apiError) {
@@ -266,7 +258,150 @@ app.post('/api/korapay/webhook', async (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
+// ========== AUTO ORDER STATUS CHECKER ==========
+cron.schedule('*/5 * * * *', async () => {
+  console.log("Checking provider order statuses...");
 
+  try {
+
+    const apiSettingsSnapshot = await db.ref('apiSettings').once('value');
+    const apiSettings = apiSettingsSnapshot.val();
+
+    if (!apiSettings || !apiSettings.endpoint || !apiSettings.apiKey) {
+      console.log("API settings not configured");
+      return;
+    }
+
+    const ordersSnapshot = await db.ref('orders')
+      .orderByChild('status')
+      .equalTo('processing')
+      .once('value');
+
+    const orders = ordersSnapshot.val();
+
+    if (!orders) {
+      console.log("No processing orders");
+      return;
+    }
+
+    for (const orderId in orders) {
+
+      const order = orders[orderId];
+
+      if (!order.providerOrderId) continue;
+
+      try {
+
+        const response = await axios.post(apiSettings.endpoint, {
+          key: apiSettings.apiKey,
+          action: "status",
+          order: order.providerOrderId
+        });
+
+        const providerStatus = response.data.status;
+
+        await db.ref(`orders/${orderId}`).update({
+          providerStatus: providerStatus,
+          lastChecked: new Date().toISOString()
+        });
+
+        // Update local order status
+        if (providerStatus === "Completed") {
+          await db.ref(`orders/${orderId}`).update({ status: "completed" });
+        }
+
+        if (providerStatus === "Processing") {
+          await db.ref(`orders/${orderId}`).update({ status: "processing" });
+        }
+
+        if (providerStatus === "Pending") {
+          await db.ref(`orders/${orderId}`).update({ status: "pending" });
+        }
+
+        if (providerStatus === "Partial") {
+          await db.ref(`orders/${orderId}`).update({ status: "partial" });
+        }
+
+        if (providerStatus === "Canceled") {
+          await db.ref(`orders/${orderId}`).update({ status: "canceled" });
+        }
+
+      } catch (orderError) {
+        console.error("Order check failed:", orderError.response?.data || orderError.message);
+      }
+
+    }
+
+  } catch (error) {
+    console.error("Status checker error:", error);
+  }
+
+});
 app.listen(PORT, () => {
   console.log(`Backend server running on port ${PORT}`);
+});
+app.get('/api/exo/import-services', async (req, res) => {
+  try {
+
+    const apiSettingsSnapshot = await db.ref('apiSettings').once('value');
+    const apiSettings = apiSettingsSnapshot.val();
+
+    if (!apiSettings || !apiSettings.endpoint || !apiSettings.apiKey) {
+      return res.status(400).json({ error: "API settings missing" });
+    }
+
+    // Get services from ExoSupplier
+    const response = await axios.post(apiSettings.endpoint, {
+      key: apiSettings.apiKey,
+      action: "services"
+    });
+
+    const services = response.data;
+
+    if (!Array.isArray(services)) {
+      return res.status(500).json({ error: "Invalid services response" });
+    }
+
+    let imported = 0;
+
+    for (const service of services) {
+
+      const providerRate = parseFloat(service.rate);
+
+      // Auto profit (30%)
+      const profitPercent = apiSettings.profitPercent || 30;
+      const sellingPrice = providerRate + (providerRate * profitPercent / 100);
+
+      const newServiceRef = db.ref('services').push();
+
+      await newServiceRef.set({
+        id: newServiceRef.key,
+        name: service.name,
+        category: service.category,
+        pricePerUnit: sellingPrice * 1000,
+        providerPrice: providerRate * 1000,
+        apiServiceId: service.service,
+        min: service.min,
+        max: service.max
+      });
+
+      imported++;
+
+    }
+
+    res.json({
+      success: true,
+      imported: imported
+    });
+
+  } catch (error) {
+
+    console.error("Service import failed:", error.response?.data || error.message);
+
+    res.status(500).json({
+      error: "Failed to import services",
+      details: error.response?.data || error.message
+    });
+
+  }
 });
