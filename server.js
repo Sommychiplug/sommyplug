@@ -135,7 +135,7 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
-// ========== KORAPAY STANDARD CHECKOUT ==========
+// ========== KORAPAY STANDARD CHECKOUT – WITH FIXED REFERENCE ==========
 app.post('/api/korapay/pay', async (req, res) => {
   try {
     const { userId, amount } = req.body;
@@ -150,18 +150,33 @@ app.post('/api/korapay/pay', async (req, res) => {
       return res.status(400).json({ error: 'Korapay not configured' });
     }
 
-    // Short reference (< 50 chars)
-    const shortUserId = userId.slice(-8);
-    const timestamp = Date.now().toString().slice(-8);
-    const random = Math.random().toString(36).substring(2, 6);
-    const reference = `DB${shortUserId}${timestamp}${random}`;
+    // ---- Generate a robust reference ----
+    let reference;
+    if (userId && typeof userId === 'string') {
+      // Use last 8 chars of userId + timestamp + random
+      const shortUserId = userId.slice(-8);
+      const timestamp = Date.now().toString().slice(-8);
+      const random = Math.random().toString(36).substring(2, 6);
+      reference = `DB${shortUserId}${timestamp}${random}`; // ~22 chars
+    } else {
+      // Fallback if userId is invalid
+      reference = `DB${Date.now()}${Math.random().toString(36).substring(2, 8)}`;
+    }
+    // Ensure reference is not empty (ultimate fallback)
+    if (!reference) reference = `DB${Date.now()}`;
+
+    console.log('✅ Generated Korapay reference:', reference); // Log it for debugging
+
+    // Your frontend URL – replace with your actual Netlify URL
+    const frontendUrl = 'https://fastplug.netlify.app'; // ⚠️ CHANGE THIS
 
     const response = await axios.post(
       'https://api.korapay.com/merchant/api/v1/charges/initialize',
       {
         amount,
         currency: 'NGN',
-        redirect_url: 'https://fastplug.netlify.app/deposit?success=true', 
+        redirect_url: `${frontendUrl}/deposit?success=true`,
+        reference,  // now guaranteed to be a non-empty string
         customer: {
           name: user.username,
           email: user.email
@@ -199,7 +214,7 @@ app.post('/api/korapay/pay', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Korapay initialization error:', error.response?.data || error.message);
+    console.error('🔥 Korapay initialization error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to initialize payment', details: error.response?.data || error.message });
   }
 });
