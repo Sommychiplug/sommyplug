@@ -2256,6 +2256,22 @@ window.testApiConnection = async function() {
         // ========== INIT ==========
         window.addEventListener('DOMContentLoaded', async () => {
             await loadAllData();
+            // Check for payment success on page load
+window.addEventListener('load', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('success') === 'true') {
+        showNotification('Payment successful! Your wallet has been credited.', 'success');
+        // Refresh user data from Firebase
+        if (currentUser) {
+            // Reload user data (balance updated by webhook)
+            loadAllData().then(() => {
+                if (currentUser) updateUserDashboard();
+            });
+        }
+        // Clean URL (remove query parameter)
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+});
             populateCountries();
             if (currentUser) {
                 currentUser.role === 'admin' ? showAdminDashboard() : showUserDashboard();
