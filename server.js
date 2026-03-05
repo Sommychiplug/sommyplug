@@ -175,7 +175,7 @@ app.post('/api/korapay/pay', async (req, res) => {
       {
         amount,
         currency: 'NGN',
-        redirect_url: `${frontendUrl}/deposit?success=true`,
+        redirect_url: `https://fastplug.netlify.app/?deposit?success=true`,
         reference,  // now guaranteed to be a non-empty string
         customer: {
           name: user.username,
