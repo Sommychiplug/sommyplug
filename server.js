@@ -357,6 +357,68 @@ cron.schedule('*/5 * * * *', async () => {
     console.error("Status checker error:", error);
   }
 });
+// ========== IMPORT SERVICES FROM EXOSUPPLIER ==========
+app.post('/api/admin/import-services', async (req, res) => {
+  try {
+    const apiSettingsSnapshot = await db.ref('apiSettings').once('value');
+    const apiSettings = apiSettingsSnapshot.val();
+
+    if (!apiSettings?.endpoint || !apiSettings?.apiKey) {
+      return res.status(400).json({ error: 'API not configured' });
+    }
+
+    // Fetch services from Exosupplier
+    const response = await axios.post(apiSettings.endpoint, {
+      key: apiSettings.apiKey,
+      action: "services"
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 30000
+    });
+
+    if (!Array.isArray(response.data)) {
+      return res.status(500).json({ error: 'Invalid response format' });
+    }
+
+    const importedServices = response.data.map(svc => ({
+      id: 'SVC_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      name: svc.name,
+      category: svc.category || 'Other',
+      subcategory: svc.type || 'Custom',
+      minQuantity: parseInt(svc.min) || 50,
+      maxQuantity: parseInt(svc.max) || 5000,
+      pricePerUnit: (parseFloat(svc.rate) * 1.3) / 1000, // 30% profit margin
+      description: svc.desc || svc.name,
+      apiServiceId: svc.service // ← THIS IS CRITICAL!
+    }));
+
+    // Save to database
+    const servicesRef = db.ref('services');
+    const existingSnapshot = await servicesRef.once('value');
+    const existing = existingSnapshot.val() || {};
+    
+    // Merge or replace
+    const updates = {};
+    importedServices.forEach(s => {
+      updates[s.id] = s;
+    });
+    
+    await servicesRef.update(updates);
+
+    res.json({ 
+      success: true, 
+      imported: importedServices.length,
+      services: importedServices 
+    });
+
+  } catch (error) {
+    console.error('Import failed:', error);
+    res.status(500).json({ 
+      error: 'Import failed', 
+      details: error.message 
+    });
+  }
+});
 
 // ========== HEALTH CHECK ==========
 app.get('/api/health', (req, res) => {
