@@ -822,7 +822,6 @@
     <script>
         // ========== BACKEND API URL (RENDER) – UPDATE THIS AFTER DEPLOYMENT ==========
        const BACKEND_URL = 'https://debby-booster-backend.onrender.com';
-
         // ========== 🔥 FIREBASE CONFIG (YOURS) ==========
         const firebaseConfig = {
             apiKey: "AIzaSyDG1XdYjBxm_h4qgZvAac_mcFdK6NNwKs8",
@@ -2108,53 +2107,7 @@ function renderAdminDeposits() {
             loadPaymentMethodSettings();
             showNotification('Korapay settings saved', 'success');
         };
-       // ========== API SETTINGS FUNCTIONS ==========
-
-function loadApiSettings() {
-    document.getElementById('api-auto-process').checked = apiSettings.autoProcess;
-    document.getElementById('api-endpoint').value = apiSettings.endpoint || '';
-    document.getElementById('api-key').value = apiSettings.apiKey || '';
-    document.getElementById('api-timeout').value = apiSettings.timeout || 30;
-}
-
-window.toggleApiAutoProcess = function() {
-    apiSettings.autoProcess = document.getElementById('api-auto-process').checked;
-    saveAllData();
-    showNotification(`Auto API ${apiSettings.autoProcess ? 'enabled' : 'disabled'}`, 'success');
-};
-
-window.saveApiSettings = function() {
-    apiSettings.endpoint = document.getElementById('api-endpoint').value;
-    apiSettings.apiKey = document.getElementById('api-key').value;
-    apiSettings.timeout = parseInt(document.getElementById('api-timeout').value) || 30;
-    saveAllData();
-    showNotification('API settings saved', 'success');
-};
-
-window.testApiConnection = async function() {
-    showNotification('Testing API connection...', 'info');
-    
-    try {
-        const response = await fetch(`${BACKEND_URL}/api/test-connection`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                endpoint: apiSettings.endpoint,
-                key: apiSettings.apiKey
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showNotification('API connection successful!', 'success');
-        } else {
-            showNotification('API connection failed: ' + data.error, 'error');
-        }
-    } catch (error) {
-        showNotification('Connection test failed', 'error');
-    }
-};
+      
         function loadReferralSettings() {
             document.getElementById('referral-enabled').checked = referralSettings.enabled;
             document.getElementById('referral-bonus-amount').value = referralSettings.bonusAmount;
@@ -2235,6 +2188,15 @@ window.testApiConnection = async function() {
                 if (btn.getAttribute('onclick')?.includes(`'${tabId}'`)) btn.classList.add('active');
             });
         };
+        // ========== SHOW ADMIN TAB ==========
+window.showAdminTab = function(tabId) {
+    document.querySelectorAll('#admin-dashboard .tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('#admin-dashboard .tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    document.querySelectorAll('#admin-dashboard .tab').forEach(btn => {
+        if (btn.getAttribute('onclick')?.includes(`'${tabId}'`)) btn.classList.add('active');
+    });
+};
 
         window.selectDepositMethod = function(method) {
             if (!paymentMethods[method]?.enabled) return showNotification(`${method} is disabled`, 'error');
