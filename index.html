@@ -655,6 +655,15 @@
                 <input type="number" step="0.01" id="service-price-per-unit" placeholder="Price per Unit (₦)" style="width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb; margin-bottom: 15px;">
                 <textarea id="service-description" placeholder="Description" rows="3" style="width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #e5e7eb; margin-bottom: 15px;"></textarea>
                 <button class="btn-auth" onclick="saveService()">Save Service</button>
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
+    <h4 style="margin-bottom: 15px;">Import from Exosupplier</h4>
+    <p style="color: #6b7280; margin-bottom: 15px; font-size: 14px;">
+        Automatically import all services from Exosupplier with your 30% profit margin applied.
+    </p>
+    <button class="btn btn-success" onclick="importFromExosupplier()" style="padding: 12px 24px; background: #10b981; color: white; border: none; border-radius: 50px; cursor: pointer;">
+        <i class="fas fa-download"></i> Import Services from Exosupplier
+    </button>
+</div>
             </div>
             <div style="margin-top: 40px;">
                 <h4>Current Services</h4>
@@ -1011,6 +1020,30 @@ window.saveApiSettings = function() {
 
 window.testApiConnection = async function() {
     showNotification('Testing API connection...', 'info');
+    window.importFromExosupplier = async function() {
+    showNotification('Importing services...', 'info');
+    
+    try {
+        const response = await fetch(`${BACKEND_URL}/api/admin/import-services`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showNotification(`Imported ${data.imported} services!`, 'success');
+            // Reload services
+            await loadAllData();
+            renderAdminServices();
+            renderServices();
+        } else {
+            showNotification('Import failed: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showNotification('Import error', 'error');
+    }
+};
     
     try {
         const response = await fetch(`${BACKEND_URL}/api/test-connection`, {
