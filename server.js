@@ -364,12 +364,17 @@ app.get('/api/health', (req, res) => {
 });
 // ========== TEST API CONNECTION ==========
 app.post('/api/test-connection', async (req, res) => {
+  console.log('Test connection called with body:', req.body);
+  
   try {
     const { endpoint, key } = req.body;
     
     if (!endpoint || !key) {
+      console.log('Missing fields:', { endpoint: !!endpoint, key: !!key });
       return res.status(400).json({ error: 'Missing endpoint or key' });
     }
+
+    console.log('Testing connection to:', endpoint);
 
     const response = await axios.post(endpoint, {
       key: key,
@@ -379,16 +384,20 @@ app.post('/api/test-connection', async (req, res) => {
       timeout: 10000
     });
 
+    console.log('Provider response:', response.data);
+
     if (Array.isArray(response.data)) {
       res.json({ success: true, serviceCount: response.data.length });
     } else {
-      res.json({ success: false, error: 'Invalid response format' });
+      res.json({ success: false, error: 'Invalid response format', data: response.data });
     }
   } catch (error) {
-    console.error('API test failed:', error.response?.data || error.message);
+    console.error('API test failed details:', error.message);
+    console.error('Error response:', error.response?.data);
     res.status(500).json({ 
       success: false, 
-      error: error.response?.data?.error || error.message 
+      error: error.message,
+      details: error.response?.data || 'No additional details'
     });
   }
 });
