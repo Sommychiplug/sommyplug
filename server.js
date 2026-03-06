@@ -292,37 +292,6 @@ app.post('/api/korapay/webhook', async (req, res) => {
   }
 });
 
-// ========== TEST API CONNECTION ==========
-app.post('/api/test-connection', async (req, res) => {
-  try {
-    const { endpoint, key } = req.body;
-    
-    if (!endpoint || !key) {
-      return res.status(400).json({ error: 'Missing endpoint or key' });
-    }
-
-    const response = await axios.post(endpoint, {
-      key: key,
-      action: "services"
-    }, {
-      headers: { 'Content-Type': 'application/json' },
-      timeout: 10000
-    });
-
-    if (Array.isArray(response.data)) {
-      res.json({ success: true, serviceCount: response.data.length });
-    } else {
-      res.json({ success: false, error: 'Invalid response format' });
-    }
-  } catch (error) {
-    console.error('API test failed:', error.response?.data || error.message);
-    res.status(500).json({ 
-      success: false, 
-      error: error.response?.data?.error || error.message 
-    });
-  }
-});
-
 // ========== AUTO ORDER STATUS CHECKER ==========
 cron.schedule('*/5 * * * *', async () => {
   console.log("Checking provider order statuses...");
@@ -392,6 +361,36 @@ cron.schedule('*/5 * * * *', async () => {
 // ========== HEALTH CHECK ==========
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+// ========== TEST API CONNECTION ==========
+app.post('/api/test-connection', async (req, res) => {
+  try {
+    const { endpoint, key } = req.body;
+    
+    if (!endpoint || !key) {
+      return res.status(400).json({ error: 'Missing endpoint or key' });
+    }
+
+    const response = await axios.post(endpoint, {
+      key: key,
+      action: "services"
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 10000
+    });
+
+    if (Array.isArray(response.data)) {
+      res.json({ success: true, serviceCount: response.data.length });
+    } else {
+      res.json({ success: false, error: 'Invalid response format' });
+    }
+  } catch (error) {
+    console.error('API test failed:', error.response?.data || error.message);
+    res.status(500).json({ 
+      success: false, 
+      error: error.response?.data?.error || error.message 
+    });
+  }
 });
 
 app.listen(PORT, '0.0.0.0', () => {
