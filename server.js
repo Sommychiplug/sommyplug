@@ -44,8 +44,7 @@ async function getUser(userId) {
 async function updateUserBalance(userId, newBalance) {
   await db.ref(`users/${userId}/balance`).set(newBalance);
 }
-
-// ========== ORDER API ENDPOINT ==========
+ // ========== ORDER API ENDPOINT ==========
 app.post('/api/orders', async (req, res) => {
   try {
     const { userId, serviceId, quantity, details } = req.body;
@@ -89,33 +88,37 @@ app.post('/api/orders', async (req, res) => {
     await orderRef.set(order);
     await updateUserBalance(userId, user.balance - totalCost);
     
-    // Auto-process if enabled – with Exosupplier two‑key authentication
+    // Auto-process if enabled - SINGLE KEY AUTHENTICATION
     const apiSettingsSnapshot = await db.ref('apiSettings').once('value');
     const apiSettings = apiSettingsSnapshot.val() || {};
     
-    if (apiSettings.autoProcess && apiSettings.endpoint) {
+    if (apiSettings.autoProcess && apiSettings.endpoint && apiSettings.apiKey) {
       try { 
+        // SINGLE KEY in request body (standard SMM panel format)
         const apiResponse = await axios.post(apiSettings.endpoint, {
-  key: apiSettings.apiKey,
-  action: "add",
-  service: service.apiServiceId,
-  link: details,
-  quantity: quantity
-}, {
-  timeout: (apiSettings.timeout || 30) * 1000
-});
+          key: apiSettings.apiKey,
+          action: "add",
+          service: service.apiServiceId || service.id,
+          link: details,
+          quantity: parseInt(quantity)
+        }, {
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          timeout: (apiSettings.timeout || 30) * 1000
+        });
 
-await db.ref(`orders/${orderId}`).update({
-  apiProcessed: true,
-  providerOrderId: apiResponse.data.order,
-  apiResponse: apiResponse.data,
-  status: "processing"
-});
+        await db.ref(`orders/${orderId}`).update({
+          apiProcessed: true,
+          providerOrderId: apiResponse.data.order,
+          apiResponse: apiResponse.data,
+          status: "processing"
+        });
         
         return res.json({ success: true, id: orderId, apiProcessed: true });
       } catch (apiError) {
-        console.error('API processing failed:', apiError.message, apiError.response?.data || '');
-        return res.json({ success: true, id: orderId, apiProcessed: false });
+        console.error('API processing failed:', apiError.message, apiResponse?.data || '');
+        return res.json({ success: true, id: orderId, apiProcessed: false, error: apiError.message });
       }
     }
     
@@ -123,7 +126,79 @@ await db.ref(`orders/${orderId}`).update({
     
   } catch (error) {
     console.error('Order creation error:', error);
-    res.status(500).json({ error: 'Failed to create order' });
+    res.status(500).json({ error: 'Failed to create order', details: error.message });
+  }
+});
+// ========== AUTO ORDER STATUS CHECKER ==========
+cron.schedule('*/5 * * * *', async () => {
+  console.log("Checking provider order statuses...");
+
+  try {
+    const apiSettingsSnapshot = await db.ref('apiSettings').once('value');
+    const apiSettings = apiSettingsSnapshot.val();
+
+    if (!apiSettings || !apiSettings.endpoint || !apiSettings.apiKey) {
+      console.log("API settings not configured");
+      return;
+    }
+
+    const ordersSnapshot = await db.ref('orders')
+      .orderByChild('status')
+      .equalTo('processing')
+      .once('value');
+
+    const orders = ordersSnapshot.val();
+
+    if (!orders) {
+      console.log("No processing orders");
+      return;
+    }
+
+    for (const orderId in orders) {
+      const order = orders[orderId];
+
+      if (!order.providerOrderId) continue;
+
+      try {
+        // SINGLE KEY AUTHENTICATION for status check
+        const response = await axios.post(apiSettings.endpoint, {
+          key: apiSettings.apiKey,
+          action: "status",
+          order: order.providerOrderId
+        }, {
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
+        });
+
+        const providerStatus = response.data.status;
+
+        await db.ref(`orders/${orderId}`).update({
+          providerStatus: providerStatus,
+          lastChecked: new Date().toISOString()
+        });
+
+        // Map provider status to your status
+        const statusMap = {
+          "Completed": "completed",
+          "Processing": "processing", 
+          "Pending": "pending",
+          "Partial": "partial",
+          "Canceled": "cancelled",
+          "In progress": "processing"
+        };
+
+        if (statusMap[providerStatus]) {
+          await db.ref(`orders/${orderId}`).update({ status: statusMap[providerStatus] });
+        }
+
+      } catch (orderError) {
+        console.error("Order check failed:", orderError.response?.data || orderError.message);
+      }
+    }
+  } catch (error) {
+    console.error("Status checker error:", error);
   }
 });
 
@@ -258,12 +333,12 @@ app.post('/api/korapay/webhook', async (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
+   
 // ========== AUTO ORDER STATUS CHECKER ==========
 cron.schedule('*/5 * * * *', async () => {
   console.log("Checking provider order statuses...");
 
   try {
-
     const apiSettingsSnapshot = await db.ref('apiSettings').once('value');
     const apiSettings = apiSettingsSnapshot.val();
 
@@ -278,64 +353,82 @@ cron.schedule('*/5 * * * *', async () => {
       .once('value');
 
     const orders = ordersSnapshot.val();
-
     if (!orders) {
       console.log("No processing orders");
       return;
     }
 
     for (const orderId in orders) {
-
       const order = orders[orderId];
-
       if (!order.providerOrderId) continue;
 
       try {
-
         const response = await axios.post(apiSettings.endpoint, {
           key: apiSettings.apiKey,
           action: "status",
           order: order.providerOrderId
+        }, {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 10000
         });
 
         const providerStatus = response.data.status;
-
         await db.ref(`orders/${orderId}`).update({
           providerStatus: providerStatus,
           lastChecked: new Date().toISOString()
         });
 
-        // Update local order status
-        if (providerStatus === "Completed") {
-          await db.ref(`orders/${orderId}`).update({ status: "completed" });
-        }
+        // Map status
+        const statusMap = {
+          "Completed": "completed",
+          "Processing": "processing", 
+          "Pending": "pending",
+          "Partial": "partial",
+          "Canceled": "cancelled",
+          "In progress": "processing"
+        };
 
-        if (providerStatus === "Processing") {
-          await db.ref(`orders/${orderId}`).update({ status: "processing" });
-        }
-
-        if (providerStatus === "Pending") {
-          await db.ref(`orders/${orderId}`).update({ status: "pending" });
-        }
-
-        if (providerStatus === "Partial") {
-          await db.ref(`orders/${orderId}`).update({ status: "partial" });
-        }
-
-        if (providerStatus === "Canceled") {
-          await db.ref(`orders/${orderId}`).update({ status: "canceled" });
+        if (statusMap[providerStatus]) {
+          await db.ref(`orders/${orderId}`).update({ status: statusMap[providerStatus] });
         }
 
       } catch (orderError) {
         console.error("Order check failed:", orderError.response?.data || orderError.message);
       }
-
     }
-
   } catch (error) {
     console.error("Status checker error:", error);
   }
+});
+// ========== TEST API CONNECTION ==========
+app.post('/api/test-connection', async (req, res) => {
+  try {
+    const { endpoint, key } = req.body;
+    
+    if (!endpoint || !key) {
+      return res.status(400).json({ error: 'Missing endpoint or key' });
+    }
 
+    const response = await axios.post(endpoint, {
+      key: key,
+      action: "services"
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 10000
+    });
+
+    if (Array.isArray(response.data)) {
+      res.json({ success: true, serviceCount: response.data.length });
+    } else {
+      res.json({ success: false, error: 'Invalid response format' });
+    }
+  } catch (error) {
+    console.error('API test failed:', error.response?.data || error.message);
+    res.status(500).json({ 
+      success: false, 
+      error: error.response?.data?.error || error.message 
+    });
+  }
 });
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend server running on port ${PORT}`);
