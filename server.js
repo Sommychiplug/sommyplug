@@ -3,11 +3,12 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const admin = require('firebase-admin');
+const cron = require('node-cron');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const cron = require('node-cron');
+
 // ========== CORS ==========
 app.use(cors({ origin: true, credentials: true }));
 app.options('*', cors({ origin: true, credentials: true }));
@@ -44,7 +45,49 @@ async function getUser(userId) {
 async function updateUserBalance(userId, newBalance) {
   await db.ref(`users/${userId}/balance`).set(newBalance);
 }
- // ========== ORDER API ENDPOINT ==========
+
+// ========== ADMIN DATA ENDPOINTS ==========
+
+// Get all users (admin only)
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    const snapshot = await db.ref('users').once('value');
+    const usersData = snapshot.val() || {};
+    const users = Object.values(usersData);
+    res.json({ users, count: users.length });
+  } catch (error) {
+    console.error('Failed to load users:', error);
+    res.status(500).json({ error: 'Failed to load users' });
+  }
+});
+
+// Get all orders (admin only)
+app.get('/api/admin/orders', async (req, res) => {
+  try {
+    const snapshot = await db.ref('orders').once('value');
+    const ordersData = snapshot.val() || {};
+    const orders = Object.values(ordersData);
+    res.json({ orders, count: orders.length });
+  } catch (error) {
+    console.error('Failed to load orders:', error);
+    res.status(500).json({ error: 'Failed to load orders' });
+  }
+});
+
+// Get all deposits (admin only)
+app.get('/api/admin/deposits', async (req, res) => {
+  try {
+    const snapshot = await db.ref('deposits').once('value');
+    const depositsData = snapshot.val() || {};
+    const deposits = Object.values(depositsData);
+    res.json({ deposits, count: deposits.length });
+  } catch (error) {
+    console.error('Failed to load deposits:', error);
+    res.status(500).json({ error: 'Failed to load deposits' });
+  }
+});
+
+// ========== ORDER API ENDPOINT ==========
 app.post('/api/orders', async (req, res) => {
   try {
     const { userId, serviceId, quantity, details } = req.body;
@@ -94,7 +137,6 @@ app.post('/api/orders', async (req, res) => {
     
     if (apiSettings.autoProcess && apiSettings.endpoint && apiSettings.apiKey) {
       try { 
-        // SINGLE KEY in request body (standard SMM panel format)
         const apiResponse = await axios.post(apiSettings.endpoint, {
           key: apiSettings.apiKey,
           action: "add",
@@ -117,7 +159,7 @@ app.post('/api/orders', async (req, res) => {
         
         return res.json({ success: true, id: orderId, apiProcessed: true });
       } catch (apiError) {
-        console.error('API processing failed:', apiError.message, apiResponse?.data || '');
+        console.error('API processing failed:', apiError.message, apiError.response?.data || '');
         return res.json({ success: true, id: orderId, apiProcessed: false, error: apiError.message });
       }
     }
@@ -129,80 +171,8 @@ app.post('/api/orders', async (req, res) => {
     res.status(500).json({ error: 'Failed to create order', details: error.message });
   }
 });
-// ========== AUTO ORDER STATUS CHECKER ==========
-cron.schedule('*/5 * * * *', async () => {
-  console.log("Checking provider order statuses...");
 
-  try {
-    const apiSettingsSnapshot = await db.ref('apiSettings').once('value');
-    const apiSettings = apiSettingsSnapshot.val();
-
-    if (!apiSettings || !apiSettings.endpoint || !apiSettings.apiKey) {
-      console.log("API settings not configured");
-      return;
-    }
-
-    const ordersSnapshot = await db.ref('orders')
-      .orderByChild('status')
-      .equalTo('processing')
-      .once('value');
-
-    const orders = ordersSnapshot.val();
-
-    if (!orders) {
-      console.log("No processing orders");
-      return;
-    }
-
-    for (const orderId in orders) {
-      const order = orders[orderId];
-
-      if (!order.providerOrderId) continue;
-
-      try {
-        // SINGLE KEY AUTHENTICATION for status check
-        const response = await axios.post(apiSettings.endpoint, {
-          key: apiSettings.apiKey,
-          action: "status",
-          order: order.providerOrderId
-        }, {
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          timeout: 10000
-        });
-
-        const providerStatus = response.data.status;
-
-        await db.ref(`orders/${orderId}`).update({
-          providerStatus: providerStatus,
-          lastChecked: new Date().toISOString()
-        });
-
-        // Map provider status to your status
-        const statusMap = {
-          "Completed": "completed",
-          "Processing": "processing", 
-          "Pending": "pending",
-          "Partial": "partial",
-          "Canceled": "cancelled",
-          "In progress": "processing"
-        };
-
-        if (statusMap[providerStatus]) {
-          await db.ref(`orders/${orderId}`).update({ status: statusMap[providerStatus] });
-        }
-
-      } catch (orderError) {
-        console.error("Order check failed:", orderError.response?.data || orderError.message);
-      }
-    }
-  } catch (error) {
-    console.error("Status checker error:", error);
-  }
-});
-
-// ========== KORAPAY STANDARD CHECKOUT – WITH FIXED REFERENCE ==========
+// ========== KORAPAY STANDARD CHECKOUT ==========
 app.post('/api/korapay/pay', async (req, res) => {
   try {
     const { userId, amount } = req.body;
@@ -217,33 +187,26 @@ app.post('/api/korapay/pay', async (req, res) => {
       return res.status(400).json({ error: 'Korapay not configured' });
     }
 
-    // ---- Generate a robust reference ----
     let reference;
     if (userId && typeof userId === 'string') {
-      // Use last 8 chars of userId + timestamp + random
       const shortUserId = userId.slice(-8);
       const timestamp = Date.now().toString().slice(-8);
       const random = Math.random().toString(36).substring(2, 6);
-      reference = `DB${shortUserId}${timestamp}${random}`; // ~22 chars
+      reference = `DB${shortUserId}${timestamp}${random}`;
     } else {
-      // Fallback if userId is invalid
       reference = `DB${Date.now()}${Math.random().toString(36).substring(2, 8)}`;
     }
-    // Ensure reference is not empty (ultimate fallback)
     if (!reference) reference = `DB${Date.now()}`;
 
-    console.log('✅ Generated Korapay reference:', reference); // Log it for debugging
-
-    // Your frontend URL – replace with your actual Netlify URL
-    const frontendUrl = 'https://fastplug.netlify.app'; // ⚠️ CHANGE THIS
+    console.log('Generated Korapay reference:', reference);
 
     const response = await axios.post(
       'https://api.korapay.com/merchant/api/v1/charges/initialize',
       {
         amount,
         currency: 'NGN',
-        redirect_url: `https://fastplug.netlify.app/?deposit?success=true`,
-        reference,  // now guaranteed to be a non-empty string
+        redirect_url: `https://fastplug.netlify.app/?payment=success`,
+        reference,
         customer: {
           name: user.username,
           email: user.email
@@ -281,7 +244,7 @@ app.post('/api/korapay/pay', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('🔥 Korapay initialization error:', error.response?.data || error.message);
+    console.error('Korapay initialization error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to initialize payment', details: error.response?.data || error.message });
   }
 });
@@ -329,11 +292,37 @@ app.post('/api/korapay/webhook', async (req, res) => {
   }
 });
 
-// ========== HEALTH CHECK ==========
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+// ========== TEST API CONNECTION ==========
+app.post('/api/test-connection', async (req, res) => {
+  try {
+    const { endpoint, key } = req.body;
+    
+    if (!endpoint || !key) {
+      return res.status(400).json({ error: 'Missing endpoint or key' });
+    }
+
+    const response = await axios.post(endpoint, {
+      key: key,
+      action: "services"
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 10000
+    });
+
+    if (Array.isArray(response.data)) {
+      res.json({ success: true, serviceCount: response.data.length });
+    } else {
+      res.json({ success: false, error: 'Invalid response format' });
+    }
+  } catch (error) {
+    console.error('API test failed:', error.response?.data || error.message);
+    res.status(500).json({ 
+      success: false, 
+      error: error.response?.data?.error || error.message 
+    });
+  }
 });
-   
+
 // ========== AUTO ORDER STATUS CHECKER ==========
 cron.schedule('*/5 * * * *', async () => {
   console.log("Checking provider order statuses...");
@@ -378,7 +367,6 @@ cron.schedule('*/5 * * * *', async () => {
           lastChecked: new Date().toISOString()
         });
 
-        // Map status
         const statusMap = {
           "Completed": "completed",
           "Processing": "processing", 
@@ -400,101 +388,12 @@ cron.schedule('*/5 * * * *', async () => {
     console.error("Status checker error:", error);
   }
 });
-// ========== TEST API CONNECTION ==========
-app.post('/api/test-connection', async (req, res) => {
-  try {
-    const { endpoint, key } = req.body;
-    
-    if (!endpoint || !key) {
-      return res.status(400).json({ error: 'Missing endpoint or key' });
-    }
 
-    const response = await axios.post(endpoint, {
-      key: key,
-      action: "services"
-    }, {
-      headers: { 'Content-Type': 'application/json' },
-      timeout: 10000
-    });
-
-    if (Array.isArray(response.data)) {
-      res.json({ success: true, serviceCount: response.data.length });
-    } else {
-      res.json({ success: false, error: 'Invalid response format' });
-    }
-  } catch (error) {
-    console.error('API test failed:', error.response?.data || error.message);
-    res.status(500).json({ 
-      success: false, 
-      error: error.response?.data?.error || error.message 
-    });
-  }
+// ========== HEALTH CHECK ==========
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend server running on port ${PORT}`);
-});
-app.get('/api/exo/import-services', async (req, res) => {
-  try {
-
-    const apiSettingsSnapshot = await db.ref('apiSettings').once('value');
-    const apiSettings = apiSettingsSnapshot.val();
-
-    if (!apiSettings || !apiSettings.endpoint || !apiSettings.apiKey) {
-      return res.status(400).json({ error: "API settings missing" });
-    }
-
-    // Get services from ExoSupplier
-    const response = await axios.post(apiSettings.endpoint, {
-      key: apiSettings.apiKey,
-      action: "services"
-    });
-
-    const services = response.data;
-
-    if (!Array.isArray(services)) {
-      return res.status(500).json({ error: "Invalid services response" });
-    }
-
-    let imported = 0;
-
-    for (const service of services) {
-
-      const providerRate = parseFloat(service.rate);
-
-      // Auto profit (30%)
-      const profitPercent = apiSettings.profitPercent || 30;
-      const sellingPrice = providerRate + (providerRate * profitPercent / 100);
-
-      const newServiceRef = db.ref('services').push();
-
-      await newServiceRef.set({
-        id: newServiceRef.key,
-        name: service.name,
-        category: service.category,
-        pricePerUnit: sellingPrice * 1000,
-        providerPrice: providerRate * 1000,
-        apiServiceId: service.service,
-        min: service.min,
-        max: service.max
-      });
-
-      imported++;
-
-    }
-
-    res.json({
-      success: true,
-      imported: imported
-    });
-
-  } catch (error) {
-
-    console.error("Service import failed:", error.response?.data || error.message);
-
-    res.status(500).json({
-      error: "Failed to import services",
-      details: error.response?.data || error.message
-    });
-
-  }
 });
