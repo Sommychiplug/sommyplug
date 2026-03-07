@@ -406,7 +406,6 @@ app.post('/api/admin/import-services', async (req, res) => {
 
     // Map services with CORRECT apiServiceId field
     const importedServices = response.data.map(svc => {
-      // Try different possible property names for service ID
       const apiServiceId = svc.service || svc.id || svc.service_id || svc.serviceId || svc.serviceID;
       
       console.log(`Mapping service: ${svc.name}, ID found: ${apiServiceId}`);
@@ -418,9 +417,9 @@ app.post('/api/admin/import-services', async (req, res) => {
         subcategory: svc.type || 'Custom',
         minQuantity: parseInt(svc.min) || 50,
         maxQuantity: parseInt(svc.max) || 5000,
-        pricePerUnit: (parseFloat(svc.rate) * 1.3) / 1000, // 30% profit margin
+        pricePerUnit: (parseFloat(svc.rate) * 1.3) / 1000,
         description: svc.desc || svc.name,
-        apiServiceId: apiServiceId // ← THIS IS CRITICAL!
+        apiServiceId: apiServiceId
       };
     });
 
@@ -466,6 +465,7 @@ app.post('/api/admin/import-services', async (req, res) => {
     });
   }
 });
+
 // ========== HEALTH CHECK ==========
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
