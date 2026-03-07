@@ -176,7 +176,7 @@ app.post('/api/orders', async (req, res) => {
           apiProcessed: true,
           providerOrderId: providerOrderId,
           apiResponse: apiResponse.data,
-          status: "processing"
+          status: "completed"
         });
         
         return res.json({ success: true, id: orderId, apiProcessed: true });
@@ -327,21 +327,24 @@ cron.schedule('*/5 * * * *', async () => {
       return;
     }
 
-    const ordersSnapshot = await db.ref('orders')
-      .orderByChild('status')
-      .equalTo('processing')
-      .once('value');
+    // Check BOTH processing AND pending orders that have providerOrderId
+    const ordersSnapshot = await db.ref('orders').once('value');
+    const allOrders = ordersSnapshot.val() || {};
+    
+    const ordersToCheck = Object.entries(allOrders).filter(([id, order]) => {
+      // Check if order has providerOrderId and status is pending/processing
+      return order.providerOrderId && 
+             (order.status === 'processing' || order.status === 'pending');
+    });
 
-    const orders = ordersSnapshot.val();
-    if (!orders) {
-      console.log("No processing orders");
+    if (ordersToCheck.length === 0) {
+      console.log("No orders to check");
       return;
     }
 
-    for (const orderId in orders) {
-      const order = orders[orderId];
-      if (!order.providerOrderId) continue;
+    console.log(`Checking ${ordersToCheck.length} orders`);
 
+    for (const [orderId, order] of ordersToCheck) {
       try {
         const response = await axios.post(apiSettings.endpoint, {
           key: apiSettings.apiKey,
@@ -353,11 +356,14 @@ cron.schedule('*/5 * * * *', async () => {
         });
 
         const providerStatus = response.data.status;
+        console.log(`Order ${orderId} status: ${providerStatus}`);
+
         await db.ref(`orders/${orderId}`).update({
           providerStatus: providerStatus,
           lastChecked: new Date().toISOString()
         });
 
+        // Map provider status to your status
         const statusMap = {
           "Completed": "completed",
           "Processing": "processing", 
@@ -369,6 +375,7 @@ cron.schedule('*/5 * * * *', async () => {
 
         if (statusMap[providerStatus]) {
           await db.ref(`orders/${orderId}`).update({ status: statusMap[providerStatus] });
+          console.log(`Updated order ${orderId} to ${statusMap[providerStatus]}`);
         }
 
       } catch (orderError) {
