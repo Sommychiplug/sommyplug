@@ -137,10 +137,18 @@ app.post('/api/orders', async (req, res) => {
     
     if (apiSettings.autoProcess && apiSettings.endpoint && apiSettings.apiKey) {
       try { 
+        console.log('Calling Exosupplier with:', {
+          key: apiSettings.apiKey,
+          action: "add",
+          service: service.apiServiceId,
+          link: details,
+          quantity: parseInt(quantity)
+        });
+
         const apiResponse = await axios.post(apiSettings.endpoint, {
           key: apiSettings.apiKey,
           action: "add",
-          service: service.apiServiceId || service.id,
+          service: service.apiServiceId,
           link: details,
           quantity: parseInt(quantity)
         }, {
@@ -150,9 +158,23 @@ app.post('/api/orders', async (req, res) => {
           timeout: (apiSettings.timeout || 30) * 1000
         });
 
+        console.log('Exosupplier FULL response:', JSON.stringify(apiResponse.data, null, 2));
+
+        // Try different possible response formats
+        const providerOrderId = apiResponse.data.order || 
+                               apiResponse.data.id || 
+                               apiResponse.data.order_id ||
+                               apiResponse.data.provider_order ||
+                               apiResponse.data.data?.order;
+
+        if (!providerOrderId) {
+          console.error('No providerOrderId found in response');
+          throw new Error('Invalid response format: ' + JSON.stringify(apiResponse.data));
+        }
+
         await db.ref(`orders/${orderId}`).update({
           apiProcessed: true,
-          providerOrderId: apiResponse.data.order,
+          providerOrderId: providerOrderId,
           apiResponse: apiResponse.data,
           status: "processing"
         });
