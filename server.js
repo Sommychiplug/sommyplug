@@ -398,30 +398,54 @@ app.post('/api/admin/import-services', async (req, res) => {
       timeout: 30000
     });
 
+    console.log('Exosupplier raw response sample:', JSON.stringify(response.data[0], null, 2));
+
     if (!Array.isArray(response.data)) {
-      return res.status(500).json({ error: 'Invalid response format' });
+      return res.status(500).json({ error: 'Invalid response format', data: response.data });
     }
 
-    const importedServices = response.data.map(svc => ({
-      id: 'SVC_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-      name: svc.name,
-      category: svc.category || 'Other',
-      subcategory: svc.type || 'Custom',
-      minQuantity: parseInt(svc.min) || 50,
-      maxQuantity: parseInt(svc.max) || 5000,
-      pricePerUnit: (parseFloat(svc.rate) * 1.3) / 1000, // 30% profit margin
-      description: svc.desc || svc.name,
-      apiServiceId: svc.service // ← THIS IS CRITICAL!
-    }));
+    // Map services with CORRECT apiServiceId field
+    const importedServices = response.data.map(svc => {
+      // Try different possible property names for service ID
+      const apiServiceId = svc.service || svc.id || svc.service_id || svc.serviceId || svc.serviceID;
+      
+      console.log(`Mapping service: ${svc.name}, ID found: ${apiServiceId}`);
+      
+      return {
+        id: 'SVC_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        name: svc.name,
+        category: svc.category || 'Other',
+        subcategory: svc.type || 'Custom',
+        minQuantity: parseInt(svc.min) || 50,
+        maxQuantity: parseInt(svc.max) || 5000,
+        pricePerUnit: (parseFloat(svc.rate) * 1.3) / 1000, // 30% profit margin
+        description: svc.desc || svc.name,
+        apiServiceId: apiServiceId // ← THIS IS CRITICAL!
+      };
+    });
+
+    // Filter out services without apiServiceId
+    const validServices = importedServices.filter(s => {
+      if (!s.apiServiceId) {
+        console.warn(`Skipping service ${s.name} - no apiServiceId found`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validServices.length === 0) {
+      return res.status(400).json({ 
+        error: 'No valid services found. Check Exosupplier response format.',
+        sample: response.data[0]
+      });
+    }
+
+    console.log(`Importing ${validServices.length} valid services`);
 
     // Save to database
     const servicesRef = db.ref('services');
-    const existingSnapshot = await servicesRef.once('value');
-    const existing = existingSnapshot.val() || {};
-    
-    // Merge or replace
     const updates = {};
-    importedServices.forEach(s => {
+    validServices.forEach(s => {
       updates[s.id] = s;
     });
     
@@ -429,8 +453,9 @@ app.post('/api/admin/import-services', async (req, res) => {
 
     res.json({ 
       success: true, 
-      imported: importedServices.length,
-      services: importedServices 
+      imported: validServices.length,
+      skipped: importedServices.length - validServices.length,
+      services: validServices 
     });
 
   } catch (error) {
@@ -441,7 +466,6 @@ app.post('/api/admin/import-services', async (req, res) => {
     });
   }
 });
-
 // ========== HEALTH CHECK ==========
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
