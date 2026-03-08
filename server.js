@@ -36,6 +36,24 @@ admin.initializeApp({
 
 const db = admin.database();
 
+// ========== Global Settings ==========
+let exchangeRate = 1500;       // USD to NGN default
+let profitMargin = 0.3;        // 30%
+
+// Load settings from Firebase on startup
+async function loadSettings() {
+  try {
+    const snap = await db.ref('settings').once('value');
+    const settings = snap.val() || {};
+    exchangeRate = settings.exchangeRate || 1500;
+    profitMargin = settings.profitMargin || 0.3;
+    console.log('✅ Settings loaded:', { exchangeRate, profitMargin });
+  } catch (e) {
+    console.error('❌ Failed to load settings:', e);
+  }
+}
+loadSettings();
+
 // ========== Helper Functions ==========
 async function getUser(userId) {
   const snapshot = await db.ref(`users/${userId}`).once('value');
@@ -45,6 +63,25 @@ async function getUser(userId) {
 async function updateUserBalance(userId, newBalance) {
   await db.ref(`users/${userId}/balance`).set(newBalance);
 }
+
+// ========== ADMIN: Update Settings ==========
+app.post('/api/admin/settings', async (req, res) => {
+  try {
+    const { exchangeRate: newRate, profitMargin: newMargin } = req.body;
+    if (newRate !== undefined) exchangeRate = parseFloat(newRate);
+    if (newMargin !== undefined) profitMargin = parseFloat(newMargin) / 100; // store as decimal
+    await db.ref('settings').set({ exchangeRate, profitMargin });
+    res.json({ success: true, exchangeRate, profitMargin });
+  } catch (error) {
+    console.error('Error updating settings:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========== Public: Get Current Settings ==========
+app.get('/api/settings', (req, res) => {
+  res.json({ exchangeRate, profitMargin: profitMargin * 100 });
+});
 
 // ========== ADMIN DATA ENDPOINTS ==========
 
@@ -101,9 +138,12 @@ app.post('/api/orders', async (req, res) => {
       return res.status(404).json({ error: 'User or service not found' });
     }
 
-    const PLATFORM_FEE = 0;
-    const totalCost = (service.pricePerUnit * quantity) + PLATFORM_FEE;
-    
+    // USD price from supplier
+    const usdPrice = service.pricePerUnit * quantity;
+    // Convert to NGN with profit margin
+    const ngnPrice = usdPrice * exchangeRate * (1 + profitMargin);
+    const totalCost = Math.round(ngnPrice); // final price in NGN
+
     if (user.balance < totalCost) {
       return res.status(400).json({ error: 'Insufficient balance' });
     }
@@ -118,10 +158,10 @@ app.post('/api/orders', async (req, res) => {
       serviceId: service.id,
       serviceName: service.name,
       quantity,
-      pricePerUnit: service.pricePerUnit,
-      serviceCost: service.pricePerUnit * quantity,
-      platformFee: PLATFORM_FEE,
-      total: totalCost,
+      pricePerUnitUSD: service.pricePerUnit,
+      exchangeRate,
+      profitMargin,
+      totalCost,
       details,
       status: 'pending',
       date: new Date().toISOString(),
@@ -131,7 +171,7 @@ app.post('/api/orders', async (req, res) => {
     await orderRef.set(order);
     await updateUserBalance(userId, user.balance - totalCost);
     
-    // Auto-process if enabled - SINGLE KEY AUTHENTICATION
+    // Auto-process if enabled
     const apiSettingsSnapshot = await db.ref('apiSettings').once('value');
     const apiSettings = apiSettingsSnapshot.val() || {};
     
@@ -176,17 +216,30 @@ app.post('/api/orders', async (req, res) => {
           apiProcessed: true,
           providerOrderId: providerOrderId,
           apiResponse: apiResponse.data,
-          status: "completed"
+          status: 'processing'  // Changed from "completed" to "processing"
         });
         
-        return res.json({ success: true, id: orderId, apiProcessed: true });
+        return res.json({ 
+          success: true, 
+          id: orderId, 
+          apiProcessed: true,
+          status: 'processing',
+          totalCost
+        });
       } catch (apiError) {
         console.error('API processing failed:', apiError.message, apiError.response?.data || '');
-        return res.json({ success: true, id: orderId, apiProcessed: false, error: apiError.message });
+        return res.json({ 
+          success: true, 
+          id: orderId, 
+          apiProcessed: false, 
+          status: 'pending',
+          totalCost,
+          error: apiError.message 
+        });
       }
     }
     
-    res.json({ success: true, id: orderId, apiProcessed: false });
+    res.json({ success: true, id: orderId, apiProcessed: false, status: 'pending', totalCost });
     
   } catch (error) {
     console.error('Order creation error:', error);
@@ -327,12 +380,10 @@ cron.schedule('*/5 * * * *', async () => {
       return;
     }
 
-    // Check BOTH processing AND pending orders that have providerOrderId
     const ordersSnapshot = await db.ref('orders').once('value');
     const allOrders = ordersSnapshot.val() || {};
     
     const ordersToCheck = Object.entries(allOrders).filter(([id, order]) => {
-      // Check if order has providerOrderId and status is pending/processing
       return order.providerOrderId && 
              (order.status === 'processing' || order.status === 'pending');
     });
@@ -363,7 +414,6 @@ cron.schedule('*/5 * * * *', async () => {
           lastChecked: new Date().toISOString()
         });
 
-        // Map provider status to your status
         const statusMap = {
           "Completed": "completed",
           "Processing": "processing", 
@@ -386,6 +436,7 @@ cron.schedule('*/5 * * * *', async () => {
     console.error("Status checker error:", error);
   }
 });
+
 // ========== IMPORT SERVICES FROM EXOSUPPLIER ==========
 app.post('/api/admin/import-services', async (req, res) => {
   try {
@@ -396,7 +447,6 @@ app.post('/api/admin/import-services', async (req, res) => {
       return res.status(400).json({ error: 'API not configured' });
     }
 
-    // Fetch services from Exosupplier
     const response = await axios.post(apiSettings.endpoint, {
       key: apiSettings.apiKey,
       action: "services"
@@ -411,7 +461,6 @@ app.post('/api/admin/import-services', async (req, res) => {
       return res.status(500).json({ error: 'Invalid response format', data: response.data });
     }
 
-    // Map services with CORRECT apiServiceId field
     const importedServices = response.data.map(svc => {
       const apiServiceId = svc.service || svc.id || svc.service_id || svc.serviceId || svc.serviceID;
       
@@ -430,7 +479,6 @@ app.post('/api/admin/import-services', async (req, res) => {
       };
     });
 
-    // Filter out services without apiServiceId
     const validServices = importedServices.filter(s => {
       if (!s.apiServiceId) {
         console.warn(`Skipping service ${s.name} - no apiServiceId found`);
@@ -448,7 +496,6 @@ app.post('/api/admin/import-services', async (req, res) => {
 
     console.log(`Importing ${validServices.length} valid services`);
 
-    // Save to database
     const servicesRef = db.ref('services');
     const updates = {};
     validServices.forEach(s => {
@@ -473,10 +520,6 @@ app.post('/api/admin/import-services', async (req, res) => {
   }
 });
 
-// ========== HEALTH CHECK ==========
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
-});
 // ========== TEST API CONNECTION ==========
 app.post('/api/test-connection', async (req, res) => {
   console.log('Test connection called with body:', req.body);
@@ -515,6 +558,11 @@ app.post('/api/test-connection', async (req, res) => {
       details: error.response?.data || 'No additional details'
     });
   }
+});
+
+// ========== HEALTH CHECK ==========
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
