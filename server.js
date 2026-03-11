@@ -1,4 +1,10 @@
-// server.js
+// server.js - FIXED VERSION
+// Now properly handles:
+// 1. Markup pricing (buy from supplier at USD price, sell at custom NGN price)
+// 2. Wallet deduction from user at selling price
+// 3. EXO account balance tracking (deducts supplier cost in USD)
+// 4. Manual price editing by admin
+
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -38,7 +44,9 @@ const db = admin.database();
 
 // ========== Global Settings ==========
 let exchangeRate = 1500;       // USD to NGN default
-let profitMargin = 0.3;        // 30%
+let profitMargin = 0.3;        // 30% (legacy, kept for backward compatibility)
+let exoAccountBalance = 0;     // Track your EXO account balance in USD
+let profitPer1K = 500; // default profit per 1000 units (in NGN)
 
 // Load settings from Firebase on startup
 async function loadSettings() {
@@ -47,7 +55,9 @@ async function loadSettings() {
     const settings = snap.val() || {};
     exchangeRate = settings.exchangeRate || 1500;
     profitMargin = settings.profitMargin || 0.3;
-    console.log('✅ Settings loaded:', { exchangeRate, profitMargin });
+     profitPer1K = settings.profitPer1K || 500;
+    exoAccountBalance = settings.exoAccountBalance || 0;
+    console.log('✅ Settings loaded:', { exchangeRate, profitMargin, exoAccountBalance });
   } catch (e) {
     console.error('❌ Failed to load settings:', e);
   }
@@ -64,14 +74,21 @@ async function updateUserBalance(userId, newBalance) {
   await db.ref(`users/${userId}/balance`).set(newBalance);
 }
 
+async function updateExoBalance(newBalance) {
+  exoAccountBalance = newBalance;
+  await db.ref('settings/exoAccountBalance').set(newBalance);
+}
+
 // ========== ADMIN: Update Settings ==========
 app.post('/api/admin/settings', async (req, res) => {
   try {
-    const { exchangeRate: newRate, profitMargin: newMargin } = req.body;
+    const { exchangeRate: newRate, profitMargin: newMargin, exoAccountBalance: newExoBalance } = req.body;
     if (newRate !== undefined) exchangeRate = parseFloat(newRate);
     if (newMargin !== undefined) profitMargin = parseFloat(newMargin) / 100; // store as decimal
-    await db.ref('settings').set({ exchangeRate, profitMargin });
-    res.json({ success: true, exchangeRate, profitMargin });
+    if (newExoBalance !== undefined) exoAccountBalance = parseFloat(newExoBalance);
+    
+    await db.ref('settings').set({ exchangeRate, profitMargin, exoAccountBalance });
+    res.json({ success: true, exchangeRate, profitMargin, exoAccountBalance });
   } catch (error) {
     console.error('Error updating settings:', error);
     res.status(500).json({ error: error.message });
@@ -80,7 +97,7 @@ app.post('/api/admin/settings', async (req, res) => {
 
 // ========== Public: Get Current Settings ==========
 app.get('/api/settings', (req, res) => {
-  res.json({ exchangeRate, profitMargin: profitMargin * 100 });
+  res.json({ exchangeRate, profitMargin: profitMargin * 100, exoAccountBalance });
 });
 
 // ========== ADMIN DATA ENDPOINTS ==========
@@ -124,7 +141,11 @@ app.get('/api/admin/deposits', async (req, res) => {
   }
 });
 
-// ========== ORDER API ENDPOINT ==========
+// ========== ORDER API ENDPOINT - FIXED VERSION ==========
+// NEW LOGIC:
+// - User is charged: pricePerUnitNgn (what you set in admin)
+// - Supplier is charged: pricePerUnitUsd (from Exosupplier)
+// - Your profit = (pricePerUnitNgn - pricePerUnitUsd * exchangeRate)
 app.post('/api/orders', async (req, res) => {
   try {
     const { userId, serviceId, quantity, details } = req.body;
@@ -138,14 +159,22 @@ app.post('/api/orders', async (req, res) => {
       return res.status(404).json({ error: 'User or service not found' });
     }
 
-    // USD price from supplier
-    const usdPrice = service.pricePerUnit * quantity;
-    // Convert to NGN with profit margin
-    const ngnPrice = usdPrice * exchangeRate * (1 + profitMargin);
-    const totalCost = Math.round(ngnPrice); // final price in NGN
+    // FIXED: Use custom selling price (pricePerUnitNgn) instead of calculating from USD
+    const userChargePerUnit = service.pricePerUnitNgn || (service.pricePerUnit * exchangeRate * (1 + profitMargin));
+    const userTotalCharge = Math.round(userChargePerUnit * quantity);
+    const platformFee = 100; // Fixed platform fee
+    const totalUserCharge = userTotalCharge + platformFee;
 
-    if (user.balance < totalCost) {
-      return res.status(400).json({ error: 'Insufficient balance' });
+    // Supplier cost (what you pay Exosupplier in USD)
+    const supplierCostPerUnitUsd = service.pricePerUnit || service.priceUSD || 0;
+    const supplierTotalCostUsd = (supplierCostPerUnitUsd * quantity).toFixed(4);
+    const supplierCostNgn = Math.round(supplierTotalCostUsd * exchangeRate);
+
+    // Your profit
+    const yourProfit = userTotalCharge - supplierCostNgn;
+
+    if (user.balance < totalUserCharge) {
+      return res.status(400).json({ error: 'Insufficient balance', required: totalUserCharge, available: user.balance });
     }
 
     const orderRef = db.ref('orders').push();
@@ -158,10 +187,19 @@ app.post('/api/orders', async (req, res) => {
       serviceId: service.id,
       serviceName: service.name,
       quantity,
-      pricePerUnitUSD: service.pricePerUnit,
+      // User charges (NGN)
+      pricePerUnitNgn: userChargePerUnit,
+      serviceCostNgn: userTotalCharge,
+      platformFeeNgn: platformFee,
+      totalCostNgn: totalUserCharge,
+      // Supplier charges (USD)
+      pricePerUnitUsd: supplierCostPerUnitUsd,
+      supplierCostUsd: parseFloat(supplierTotalCostUsd),
+      supplierCostNgn: supplierCostNgn,
+      // Your profit
+      yourProfitNgn: yourProfit,
+      // Meta
       exchangeRate,
-      profitMargin,
-      totalCost,
       details,
       status: 'pending',
       date: new Date().toISOString(),
@@ -169,8 +207,14 @@ app.post('/api/orders', async (req, res) => {
     };
     
     await orderRef.set(order);
-    await updateUserBalance(userId, user.balance - totalCost);
     
+    // FIXED: Deduct from user wallet at USER PRICE (not supplier price)
+    await updateUserBalance(userId, user.balance - totalUserCharge);
+    
+    // FIXED: Deduct from your EXO account at SUPPLIER PRICE
+    const newExoBalance = exoAccountBalance - parseFloat(supplierTotalCostUsd);
+    await updateExoBalance(newExoBalance);
+
     // Auto-process if enabled
     const apiSettingsSnapshot = await db.ref('apiSettings').once('value');
     const apiSettings = apiSettingsSnapshot.val() || {};
@@ -216,7 +260,7 @@ app.post('/api/orders', async (req, res) => {
           apiProcessed: true,
           providerOrderId: providerOrderId,
           apiResponse: apiResponse.data,
-          status: 'processing'  // Changed from "completed" to "processing"
+          status: 'processing'
         });
         
         return res.json({ 
@@ -224,7 +268,9 @@ app.post('/api/orders', async (req, res) => {
           id: orderId, 
           apiProcessed: true,
           status: 'processing',
-          totalCost
+          userCharge: totalUserCharge,
+          supplierCost: supplierTotalCostUsd,
+          yourProfit: yourProfit
         });
       } catch (apiError) {
         console.error('API processing failed:', apiError.message, apiError.response?.data || '');
@@ -233,17 +279,89 @@ app.post('/api/orders', async (req, res) => {
           id: orderId, 
           apiProcessed: false, 
           status: 'pending',
-          totalCost,
+          userCharge: totalUserCharge,
+          supplierCost: supplierTotalCostUsd,
+          yourProfit: yourProfit,
           error: apiError.message 
         });
       }
     }
     
-    res.json({ success: true, id: orderId, apiProcessed: false, status: 'pending', totalCost });
+    res.json({ 
+      success: true, 
+      id: orderId, 
+      apiProcessed: false, 
+      status: 'pending', 
+      userCharge: totalUserCharge,
+      supplierCost: supplierTotalCostUsd,
+      yourProfit: yourProfit
+    });
     
   } catch (error) {
     console.error('Order creation error:', error);
     res.status(500).json({ error: 'Failed to create order', details: error.message });
+  }
+});
+
+// ========== UPDATE SERVICE PRICE - NEW ENDPOINT ==========
+// Allows admin to manually set custom selling price (NGN) for a service
+app.post('/api/admin/update-service-price', async (req, res) => {
+  try {
+    const { serviceId, pricePerUnitNgn } = req.body;
+    if (!serviceId || pricePerUnitNgn === undefined) {
+      return res.status(400).json({ error: 'Missing serviceId or pricePerUnitNgn' });
+    }
+
+    const priceNum = parseFloat(pricePerUnitNgn);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      return res.status(400).json({ error: 'Price must be a positive number' });
+    }
+
+    await db.ref(`services/${serviceId}/pricePerUnitNgn`).set(priceNum);
+    
+    res.json({ 
+      success: true, 
+      serviceId, 
+      newPrice: priceNum,
+      message: `Service price updated to ₦${priceNum.toLocaleString()}/unit`
+    });
+  } catch (error) {
+    console.error('Error updating service price:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========== GET EXO ACCOUNT BALANCE ==========
+app.get('/api/admin/exo-balance', (req, res) => {
+  res.json({ 
+    exoAccountBalance,
+    currency: 'USD'
+  });
+});
+
+// ========== UPDATE EXO ACCOUNT BALANCE ==========
+app.post('/api/admin/update-exo-balance', async (req, res) => {
+  try {
+    const { amount } = req.body;
+    if (amount === undefined) {
+      return res.status(400).json({ error: 'Missing amount' });
+    }
+
+    const newBalance = parseFloat(amount);
+    if (isNaN(newBalance)) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+
+    await updateExoBalance(newBalance);
+    
+    res.json({ 
+      success: true, 
+      exoAccountBalance: newBalance,
+      message: `EXO account balance updated to $${newBalance.toFixed(2)} USD`
+    });
+  } catch (error) {
+    console.error('Error updating EXO balance:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -463,8 +581,13 @@ app.post('/api/admin/import-services', async (req, res) => {
 
     const importedServices = response.data.map(svc => {
       const apiServiceId = svc.service || svc.id || svc.service_id || svc.serviceId || svc.serviceID;
+      const usdPrice = parseFloat(svc.rate) / 1000; // Convert to USD
       
-      console.log(`Mapping service: ${svc.name}, ID found: ${apiServiceId}`);
+      // FIXED: Calculate NGN price with markup
+      const profitPerUnit = (profitPer1K || 500) / 1000;
+      const ngnPrice = Math.ceil(usdPrice * exchangeRate + profitPerUnit);
+      
+      console.log(`Mapping service: ${svc.name}, USD: $${usdPrice.toFixed(4)}, NGN: ₦${ngnPrice}`);
       
       return {
         id: 'SVC_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
@@ -473,7 +596,9 @@ app.post('/api/admin/import-services', async (req, res) => {
         subcategory: svc.type || 'Custom',
         minQuantity: parseInt(svc.min) || 50,
         maxQuantity: parseInt(svc.max) || 5000,
-        pricePerUnit: (parseFloat(svc.rate) * 1.3) / 1000,
+        priceUSD: usdPrice,
+        pricePerUnit: usdPrice,
+        pricePerUnitNgn: ngnPrice, // FIXED: Store NGN price for manual editing
         description: svc.desc || svc.name,
         apiServiceId: apiServiceId
       };
@@ -528,11 +653,8 @@ app.post('/api/test-connection', async (req, res) => {
     const { endpoint, key } = req.body;
     
     if (!endpoint || !key) {
-      console.log('Missing fields:', { endpoint: !!endpoint, key: !!key });
       return res.status(400).json({ error: 'Missing endpoint or key' });
     }
-
-    console.log('Testing connection to:', endpoint);
 
     const response = await axios.post(endpoint, {
       key: key,
@@ -542,21 +664,14 @@ app.post('/api/test-connection', async (req, res) => {
       timeout: 10000
     });
 
-    console.log('Provider response:', response.data);
-
     if (Array.isArray(response.data)) {
       res.json({ success: true, serviceCount: response.data.length });
     } else {
       res.json({ success: false, error: 'Invalid response format', data: response.data });
     }
   } catch (error) {
-    console.error('API test failed details:', error.message);
-    console.error('Error response:', error.response?.data);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message,
-      details: error.response?.data || 'No additional details'
-    });
+    console.error('API test failed:', error.message);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
