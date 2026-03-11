@@ -679,6 +679,85 @@ app.post('/api/test-connection', async (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
+// ========== EMAIL CONFIGURATION ==========
+const nodemailer = require('nodemailer');
+
+// Email transporter (configure with your SMTP settings)
+const transporter = nodemailer.createTransport({
+  service: 'gmail', // or your SMTP provider
+  auth: {
+    user: process.env.EMAIL_USER, // your email address
+    pass: process.env.EMAIL_PASS  // your email password or app password
+  }
+});
+
+// ========== SEND EMAIL TO ALL USERS ==========
+app.post('/api/admin/send-email-to-all', async (req, res) => {
+  try {
+    const { subject, message } = req.body;
+    if (!subject || !message) {
+      return res.status(400).json({ error: 'Missing subject or message' });
+    }
+
+    // Get all user emails
+    const snapshot = await db.ref('users').once('value');
+    const users = snapshot.val() || {};
+    const emails = Object.values(users)
+      .filter(u => u.role === 'user' && u.email)
+      .map(u => u.email);
+
+    if (emails.length === 0) {
+      return res.status(400).json({ error: 'No user emails found' });
+    }
+
+    // Send email to all (using BCC to hide recipients)
+    const mailOptions = {
+      from: `"Debby Booster" <${process.env.EMAIL_USER}>`,
+      bcc: emails.join(','),
+      subject: subject,
+      text: message,
+      html: message.replace(/\n/g, '<br>')
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.json({ success: true, message: `Email sent to ${emails.length} users` });
+  } catch (error) {
+    console.error('Email sending failed:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========== SEND EMAIL TO SPECIFIC USER ==========
+app.post('/api/admin/send-email-to-user', async (req, res) => {
+  try {
+    const { userId, subject, message } = req.body;
+    if (!userId || !subject || !message) {
+      return res.status(400).json({ error: 'Missing userId, subject, or message' });
+    }
+
+    // Get user email
+    const user = await getUser(userId);
+    if (!user || !user.email) {
+      return res.status(404).json({ error: 'User not found or no email' });
+    }
+
+    const mailOptions = {
+      from: `"Debby Booster" <${process.env.EMAIL_USER}>`,
+      to: user.email,
+      subject: subject,
+      text: message,
+      html: message.replace(/\n/g, '<br>')
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.json({ success: true, message: `Email sent to ${user.email}` });
+  } catch (error) {
+    console.error('Email sending failed:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend server running on port ${PORT}`);
